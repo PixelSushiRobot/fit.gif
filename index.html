@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>fit.gif</title>
+  <style>
+    /* Dark theme (default) — monochrome */
+    :root,
+    :root[data-theme="dark"] {
+      --bg: #0a0a0b;
+      --bg-2: #111113;
+      --panel-bg: #0e0e10;
+      --line: #2a2a2e;
+      --line-2: #1c1c20;
+      --text: #ececef;
+      --muted: #7c7c85;
+      --dim: #55555d;
+      --accent: #ececef;
+      --accent-dim: #55555d;
+      --on-accent: #0a0a0b;
+      --good: #ececef;
+      --bad: #b7b7bd;
+      --chip: #16161a;
+      --checker-a: #1a1a1e;
+      --checker-b: #111;
+      --sel: rgba(236, 236, 239, 0.07);
+    }
+
+    /* Light theme — monochrome */
+    :root[data-theme="light"] {
+      --bg: #f4f4f2;
+      --bg-2: #ffffff;
+      --panel-bg: #ffffff;
+      --line: #d4d4cf;
+      --line-2: #e6e6e1;
+      --text: #16161a;
+      --muted: #6a6a70;
+      --dim: #9a9a9f;
+      --accent: #16161a;
+      --accent-dim: #9a9a9f;
+      --on-accent: #ffffff;
+      --good: #16161a;
+      --bad: #55555a;
+      --chip: #f0f0ec;
+      --checker-a: #e2e2dd;
+      --checker-b: #f4f4f2;
+      --sel: rgba(22, 22, 26, 0.06);
+    }
+
+    /* System default: follow OS when no explicit theme is chosen */
+    @media (prefers-color-scheme: light) {
+      :root:not([data-theme]) {
+        --bg: #f4f4f2;
+        --bg-2: #ffffff;
+        --panel-bg: #ffffff;
+        --line: #d4d4cf;
+        --line-2: #e6e6e1;
+        --text: #16161a;
+        --muted: #6a6a70;
+        --dim: #9a9a9f;
+        --accent: #16161a;
+        --accent-dim: #9a9a9f;
+        --on-accent: #ffffff;
+        --good: #16161a;
+        --bad: #55555a;
+        --chip: #f0f0ec;
+        --checker-a: #e2e2dd;
+        --checker-b: #f4f4f2;
+        --sel: rgba(22, 22, 26, 0.06);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 0 22px 76px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 1160px;
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 30px 0 18px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .head-l {
+      min-width: 0;
+    }
+
+    .kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.34em;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: clamp(22px, 3.2vw, 34px);
+      line-height: 1.05;
+      margin: 0 0 10px;
+      letter-spacing: -0.01em;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+
+    .sub {
+      font-size: 12.5px;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .head-r {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .theme-toggle {
+      display: flex;
+      border: 1px solid var(--line);
+    }
+
+    .th-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 30px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: 0.12s;
+    }
+
+    .th-btn+.th-btn {
+      border-left: 1px solid var(--line);
+    }
+
+    .th-btn:hover {
+      color: var(--text);
+    }
+
+    .th-btn.on {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--line);
+      padding: 18px;
+    }
+
+    .panel+.panel {
+      margin-top: 18px;
+    }
+
+    .panel h2 {
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 10px;
+      font-weight: 600;
+      margin: 0 0 16px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line-2);
+    }
+
+    .panel h2 .num {
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .panel h2 .count {
+      margin-left: auto;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* dropzone */
+    #drop {
+      border: 1px dashed var(--line);
+      background: var(--bg-2);
+      padding: 30px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    #drop:hover {
+      border-color: var(--dim);
+    }
+
+    #drop.hot {
+      border-color: var(--text);
+      background: var(--sel);
+    }
+
+    #drop .t {
+      font-weight: 600;
+      margin: 0 0 4px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #drop .s {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    #file {
+      display: none;
+    }
+
+    /* targets */
+    .targets {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tgt {
+      border: 1px solid var(--line);
+      background: var(--chip);
+      padding: 12px 14px;
+      cursor: pointer;
+      text-align: left;
+      transition: 0.12s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .tgt:hover {
+      border-color: var(--dim);
+    }
+
+    .tgt.on {
+      border-color: var(--text);
+      background: var(--sel);
+    }
+
+    .tgt .n {
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .tgt .c {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .tgt.on .c {
+      color: var(--text);
+      border-color: var(--dim);
+    }
+
+    /* sliders */
+    .ctrl {
+      margin: 16px 0;
+    }
+
+    .ctrl .lab {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .ctrl .lab b {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .ctrl .lab .v {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 3px;
+      background: var(--line);
+    }
+
+    select {
+      width: 100%;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      background: var(--chip);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--dim);
+    }
+
+    .hint {
+      font-size: 10.5px;
+      color: var(--dim);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .seg {
+      display: flex;
+      border: 1px solid var(--line);
+    }
+
+    .seg-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      background: var(--chip);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--muted);
+      transition: 0.12s;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .seg-btn+.seg-btn {
+      border-left: 1px solid var(--line);
+    }
+
+    .seg-btn.on {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+
+    .btn {
+      font-family: inherit;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      background: var(--accent);
+      color: var(--on-accent);
+      border: 1px solid var(--accent);
+      padding: 13px 20px;
+      font-size: 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: 0.12s;
+    }
+
+    .btn:hover:not(:disabled) {
+      opacity: 0.82;
+    }
+
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .btn.ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    .btn.ghost:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: transparent;
+    }
+
+    /* file meta / results */
+    .meta {
+      display: none;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line-2);
+    }
+
+    .meta.show {
+      display: block;
+    }
+
+    .filerow {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .filerow img {
+      max-width: 120px;
+      max-height: 100px;
+      border: 1px solid var(--line);
+      background:
+        repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 0 0 / 14px 14px;
+    }
+
+    .filestats {
+      font-size: 11px;
+      min-width: 0;
+    }
+
+    .filestats .fn {
+      font-weight: 600;
+      word-break: break-all;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .filestats .row {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .results {
+      display: none;
+    }
+
+    .results.show {
+      display: block;
+    }
+
+    .verdict {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--line);
+      padding: 13px 15px;
+      margin-bottom: 16px;
+      background: var(--chip);
+    }
+
+    .verdict .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex: none;
+    }
+
+    .verdict.good {
+      border-color: var(--text);
+    }
+
+    .verdict.good .dot {
+      background: var(--text);
+    }
+
+    .verdict.bad {
+      border-color: var(--line);
+    }
+
+    .verdict.bad .dot {
+      background: transparent;
+      border: 2px solid var(--muted);
+    }
+
+    .verdict .txt b {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .verdict .txt span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .compare .box {
+      border: 1px solid var(--line);
+      padding: 10px;
+      text-align: center;
+      background: var(--bg-2);
+    }
+
+    .compare .box img {
+      max-width: 100%;
+      max-height: 140px;
+      border: 1px solid var(--line-2);
+      background:
+        repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 0 0 / 14px 14px;
+    }
+
+    .compare .box .cap {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--dim);
+      margin-bottom: 8px;
+    }
+
+    .compare .box .sz {
+      font-weight: 600;
+      font-size: 15px;
+      margin-top: 8px;
+      color: var(--text);
+    }
+
+    .compare .box .sz.smaller {
+      color: var(--accent);
+    }
+
+    .bar {
+      height: 8px;
+      background: var(--line-2);
+      border: 1px solid var(--line);
+      margin: 18px 0 6px;
+      position: relative;
+      overflow: visible;
+    }
+
+    .bar .fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0;
+      transition: width 0.4s;
+    }
+
+    .bar .limit {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 1px;
+      background: var(--bad);
+    }
+
+    .bar .limit::after {
+      content: 'CAP';
+      position: absolute;
+      top: -15px;
+      left: 3px;
+      font-size: 8px;
+      color: var(--bad);
+      white-space: nowrap;
+      letter-spacing: 0.1em;
+    }
+
+    .barlab {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    #status {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 12px;
+      min-height: 16px;
+    }
+
+    #status.err {
+      color: var(--bad);
+    }
+
+    .tips {
+      margin-top: 18px;
+    }
+
+    .tips .panel {
+      padding: 20px 22px;
+    }
+
+    .tips ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .tips li {
+      margin-bottom: 9px;
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .tips li b {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .foot {
+      display: block;
+      text-align: center;
+      color: var(--dim);
+      font-size: 10px;
+      margin-top: 26px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="head-l">
+        <!-- <p class="kicker">a psr tool</p> -->
+        <h1>fit.gif</h1>
+        <p class="sub">Squeeze animated GIFs under X, Farcaster, and Discord upload caps. Made for 2D illustration and
+          pixel art loops. </p>
+      </div>
+      <div class="head-r">
+        <div class="theme-toggle" id="themeToggle" role="group" aria-label="Color theme">
+          <button class="th-btn" data-theme-choice="light" title="Light" aria-label="Light theme">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round">
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+            </svg>
+          </button>
+          <button class="th-btn" data-theme-choice="dark" title="Dark" aria-label="Dark theme">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+            </svg>
+          </button>
+          <button class="th-btn on" data-theme-choice="system" title="Follow system" aria-label="System theme">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="12" rx="1.5" />
+              <path d="M8 20h8M12 16v4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- LEFT: input + controls -->
+      <div>
+        <div class="panel">
+          <h2><span class="num">01</span> Your GIF</h2>
+          <div id="drop">
+            <div class="t">Drop a GIF here</div>
+            <div class="s">or click to choose</div>
+          </div>
+          <input type="file" id="file" accept="image/gif">
+          <div class="meta" id="meta">
+            <div class="filerow">
+              <img id="thumb" alt="preview">
+              <div class="filestats">
+                <div class="fn" id="fname">—</div>
+                <div class="row" id="fdims">—</div>
+                <div class="row" id="fsize">—</div>
+                <div class="row" id="fframes">—</div>
+                <div class="row" id="ffps">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:24px;">
+          <h2><span class="num">02</span> Target platform</h2>
+          <div class="targets" id="targets"></div>
+          <div class="hint" id="tgtnote" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: settings + run + results -->
+      <div>
+        <div class="panel">
+          <h2><span class="num">03</span> Compression settings</h2>
+
+          <div class="ctrl">
+            <div class="lab"><b>Art type</b></div>
+            <div class="seg" id="artmode">
+              <button class="seg-btn on" data-mode="illustration">Illustration (smooth)</button>
+              <button class="seg-btn" data-mode="pixel">Pixel art (crisp)</button>
+            </div>
+            <div class="hint" id="artHint">Smooth downscaling for 2D illustration &amp; cel art. Nearest-color palette,
+              no dither.</div>
+          </div>
+
+          <div class="ctrl">
+            <div class="lab"><b>Resize</b><span class="v" id="scaleV">100%</span></div>
+            <input type="range" id="scale" min="20" max="100" value="100" step="5">
+            <div class="hint">On flat art, cut colors first — resize is the fallback for tight caps.</div>
+          </div>
+
+          <div class="ctrl">
+            <div class="lab"><b>Colors</b><span class="v" id="colorsV">256</span></div>
+            <input type="range" id="colors" min="8" max="256" value="256" step="8">
+            <div class="hint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.
+            </div>
+          </div>
+
+          <div class="ctrl">
+            <div class="lab"><b>Drop frames</b><span class="v" id="dropV">Keep all</span></div>
+            <select id="dropframes">
+              <option value="1">Keep all frames</option>
+              <option value="2">Drop every 2nd frame (~50%)</option>
+              <option value="3">Drop every 3rd frame</option>
+              <option value="4">Drop every 4th frame</option>
+            </select>
+            <div class="hint" id="fpsHint">A 24fps loop drops to ~12fps at every-2nd-frame — usually imperceptible.
+            </div>
+          </div>
+
+          <button class="btn ghost" id="autofit" disabled style="margin-bottom:10px;">&#9889; Auto-fit to
+            target</button>
+          <button class="btn" id="run" disabled>Compress GIF</button>
+          <div id="status"></div>
+        </div>
+
+        <div class="panel results" id="results" style="margin-top:24px;">
+          <h2><span class="num">04</span> Result</h2>
+          <div class="verdict" id="verdict">
+            <div class="dot"></div>
+            <div class="txt"><b id="vTitle">—</b><span id="vSub">—</span></div>
+          </div>
+
+          <div class="bar" id="bar">
+            <div class="fill" id="barFill"></div>
+            <div class="limit" id="barLimit"></div>
+          </div>
+          <div class="barlab"><span id="barSize">0</span><span id="barCap">cap</span></div>
+
+          <div class="compare">
+            <div class="box">
+              <div class="cap">Original</div>
+              <img id="cmpOrig" alt="original">
+              <div class="sz" id="cmpOrigSz">—</div>
+            </div>
+            <div class="box">
+              <div class="cap">Compressed</div>
+              <img id="cmpNew" alt="compressed">
+              <div class="sz" id="cmpNewSz">—</div>
+            </div>
+          </div>
+
+          <button class="btn" id="download" style="margin-top:16px;">&#8681; Download compressed GIF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tips">
+      <div class="panel">
+        <h2><span class="num">→</span> Tuned for 2D illustration &amp; pixel art loops</h2>
+        <ul>
+          <li><b>Cut colors first.</b> Flat cel art and pixel art use narrow palettes — 64 colors is usually invisible,
+            32 is fine for two-tone loops. This is the biggest win here, not resize.</li>
+          <li><b>Then drop frames.</b> A 24fps loop trimmed to every-2nd-frame plays at ~12fps and roughly halves size
+            with no perceptible change.</li>
+          <li><b>Resize last.</b> Only shrink dimensions when colors + frames aren't enough — most feeds display GIFs
+            small anyway.</li>
+          <li><b>Pick your art type.</b> "Pixel art (crisp)" disables smoothing so pixels stay sharp; "Illustration"
+            uses high-quality smooth downscaling. Neither dithers, which keeps flat color areas clean.</li>
+          <li><b>Still too big?</b> If the platform accepts video (X and Farcaster do), an MP4 export of the same loop
+            is usually far smaller than any GIF.</li>
+        </ul>
+      </div>
+    </div>
+
+    <span class="foot">Runs entirely in your browser &middot; Your GIF never leaves your device`</span>
+  </div>
+
+  <script>
+    /* ============================================================
+       GIF decode  ->  transform (resize / palette / frame-drop)  ->  GIF re-encode
+       All in-browser. Decoder + encoder are implemented inline below.
+       ============================================================ */
+
+    // ---------- Platform targets (bytes) ----------
+    const MB = 1024 * 1024, KB = 1024;
+    const TARGETS = [
+      { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts GIFs up to 15 MB on web (5 MB on the mobile app). Over the cap, X auto-converts to video.' },
+      { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, note: 'Farcaster supports animated GIF up to 10 MB. It favors a 3:2 card — a 1:1 loop still works, just not full-bleed.' },
+      { id: 'discord', name: 'Discord', cap: 10 * MB, buffer: 0.95, note: 'Discord free-tier upload cap is 10 MB (50 MB Nitro Basic, 500 MB full Nitro).' },
+    ];
+
+    let current = null;      // { name, blob, arrayBuffer, decoded }
+    let selectedTarget = TARGETS[0];
+    let lastOutputBlob = null;
+    let artMode = 'illustration'; // 'illustration' (smooth) | 'pixel' (crisp)
+
+    const $ = id => document.getElementById(id);
+    function fmtBytes(b) {
+      if (b >= MB) return (b / MB).toFixed(b >= 10 * MB ? 1 : 2) + ' MB';
+      if (b >= KB) return (b / KB).toFixed(0) + ' KB';
+      return b + ' B';
+    }
+
+    // ---------- Theme (light / dark / system, default system) ----------
+    (function initTheme() {
+      const root = document.documentElement;
+      let saved = null;
+      try { saved = localStorage.getItem('gifcompress-theme'); } catch (e) { }
+      const choice = (saved === 'light' || saved === 'dark') ? saved : 'system';
+      applyTheme(choice);
+      document.querySelectorAll('.th-btn').forEach(btn => {
+        btn.classList.toggle('on', btn.dataset.themeChoice === choice);
+        btn.onclick = () => {
+          const c = btn.dataset.themeChoice;
+          applyTheme(c);
+          try { c === 'system' ? localStorage.removeItem('gifcompress-theme') : localStorage.setItem('gifcompress-theme', c); } catch (e) { }
+          document.querySelectorAll('.th-btn').forEach(b => b.classList.toggle('on', b === btn));
+        };
+      });
+      function applyTheme(c) {
+        if (c === 'system') root.removeAttribute('data-theme');
+        else root.setAttribute('data-theme', c);
+      }
+    })();
+
+    // ---------- Build target buttons ----------
+    const tgtWrap = $('targets');
+    TARGETS.forEach((t, i) => {
+      const el = document.createElement('button');
+      el.className = 'tgt' + (i === 0 ? ' on' : '');
+      el.innerHTML = `<span class="n">${t.name}</span><span class="c">${fmtBytes(t.cap)}</span>`;
+      el.onclick = () => {
+        selectedTarget = t;
+        document.querySelectorAll('.tgt').forEach(x => x.classList.remove('on'));
+        el.classList.add('on');
+        $('tgtnote').textContent = t.note;
+        if (current) evaluateExisting();
+      };
+      tgtWrap.appendChild(el);
+    });
+    $('tgtnote').textContent = TARGETS[0].note;
+
+    // ---------- Sliders ----------
+    $('scale').oninput = e => $('scaleV').textContent = e.target.value + '%';
+    $('colors').oninput = e => $('colorsV').textContent = e.target.value;
+    $('dropframes').onchange = e => updateDropLabel(+e.target.value);
+
+    function updateDropLabel(step) {
+      $('dropV').textContent = step === 1 ? 'Keep all' : ('1 in ' + step);
+      if (current && current.fps) {
+        const newFps = (current.fps / step);
+        $('fpsHint').textContent = `Source is ~${current.fps} fps → ~${newFps.toFixed(newFps < 10 ? 1 : 0)} fps after dropping. Playback speed is preserved.`;
+      }
+    }
+
+    // ---------- Art mode toggle ----------
+    const ART_HINTS = {
+      illustration: 'Smooth downscaling for 2D illustration & cel art. Nearest-color palette, no dither.',
+      pixel: 'Crisp nearest-neighbor resize keeps pixels sharp. No smoothing, no dither.'
+    };
+    $('artmode').querySelectorAll('.seg-btn').forEach(btn => {
+      btn.onclick = () => {
+        artMode = btn.dataset.mode;
+        $('artmode').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        $('artHint').textContent = ART_HINTS[artMode];
+      };
+    });
+
+    // ---------- File input / drop ----------
+    const drop = $('drop');
+    drop.onclick = () => $('file').click();
+    $('file').onchange = e => { if (e.target.files[0]) loadFile(e.target.files[0]); };
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hot'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hot'); }));
+    drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+
+    async function loadFile(file) {
+      if (!/gif/i.test(file.type) && !/\.gif$/i.test(file.name)) {
+        setStatus('Please choose a GIF file.', true); return;
+      }
+      setStatus('Reading GIF…');
+      const buf = await file.arrayBuffer();
+      let decoded;
+      try { decoded = decodeGIF(new Uint8Array(buf)); }
+      catch (err) { setStatus('Could not decode this GIF: ' + err.message, true); return; }
+
+      current = { name: file.name, size: file.size, buf, decoded };
+      lastOutputBlob = null;
+
+      // estimate source fps from average frame delay (delays are in 1/100s)
+      const avgDelay = decoded.frames.reduce((s, f) => s + (f.delay || 10), 0) / decoded.frames.length;
+      const fps = Math.round(100 / Math.max(1, avgDelay));
+      current.fps = fps;
+
+      const url = URL.createObjectURL(file);
+      $('thumb').src = url;
+      $('cmpOrig').src = url;
+      $('fname').textContent = file.name;
+      $('fdims').textContent = decoded.width + ' × ' + decoded.height + ' px';
+      $('fsize').textContent = fmtBytes(file.size);
+      $('fframes').textContent = decoded.frames.length + ' frame' + (decoded.frames.length !== 1 ? 's' : '');
+      $('ffps').textContent = '~' + fps + ' fps';
+      $('meta').classList.add('show');
+      $('run').disabled = false;
+      $('autofit').disabled = false;
+      $('results').classList.remove('show');
+      updateDropLabel(+$('dropframes').value);
+
+      // large-file guardrail: many-frame, high-res GIFs are slow in a from-scratch decoder
+      const px = decoded.width * decoded.height * decoded.frames.length;
+      if (px > 120e6) {
+        setStatus(`Heads up: ${decoded.frames.length} frames at ${decoded.width}×${decoded.height} is large — compression may take 20-40s and use significant memory.`);
+      } else {
+        evaluateExisting();
+      }
+    }
+
+    function evaluateExisting() {
+      // just informational; note if original already fits
+      if (!current) return;
+      const fits = current.size <= selectedTarget.cap;
+      setStatus(fits
+        ? `Original already fits under ${selectedTarget.name} (${fmtBytes(selectedTarget.cap)}). Compress anyway to shrink further.`
+        : `Original is ${fmtBytes(current.size)} — over the ${fmtBytes(selectedTarget.cap)} ${selectedTarget.name} cap by ${fmtBytes(current.size - selectedTarget.cap)}.`);
+    }
+
+    function setStatus(msg, err) {
+      const s = $('status'); s.textContent = msg; s.classList.toggle('err', !!err);
+    }
+
+    // ---------- Compress with current settings ----------
+    $('run').onclick = () => compress({
+      scale: +$('scale').value / 100,
+      colors: +$('colors').value,
+      frameStep: +$('dropframes').value,
+      smooth: artMode !== 'pixel'
+    });
+
+    async function compress(opts) {
+      if (!current) return;
+      $('run').disabled = true; $('autofit').disabled = true;
+      setStatus('Compressing… frame ' + '0/' + current.decoded.frames.length);
+      await new Promise(r => setTimeout(r, 20));
+      let out;
+      try {
+        out = await buildGIF(current.decoded, opts, (i, n) => setStatus(`Compressing… frame ${i}/${n}`));
+      } catch (err) {
+        setStatus('Compression failed: ' + err.message, true);
+        $('run').disabled = false; $('autofit').disabled = false; return;
+      }
+      lastOutputBlob = new Blob([out], { type: 'image/gif' });
+      showResult(lastOutputBlob.size, opts);
+      $('run').disabled = false; $('autofit').disabled = false;
+    }
+
+    // ---------- Auto-fit: search settings until under cap ----------
+    $('autofit').onclick = async () => {
+      if (!current) return;
+      $('run').disabled = true; $('autofit').disabled = true;
+      const cap = Math.floor(selectedTarget.cap * (selectedTarget.buffer ?? 0.97)); // safety buffer so uploads aren't rejected at the edge
+      // Ladder tuned for flat 2D / pixel art: cut colors and drop frames FIRST,
+      // preserve dimensions as long as possible, resize only when needed. [scale, colors, frameStep]
+      const ladder = [
+        [1.0, 256, 1], [1.0, 128, 1], [1.0, 96, 1], [1.0, 64, 1], [1.0, 64, 2],
+        [1.0, 48, 2], [1.0, 32, 2], [1.0, 32, 3], [0.85, 32, 3], [0.7, 48, 2],
+        [0.7, 32, 2], [0.7, 32, 3], [0.6, 32, 3], [0.5, 48, 2], [0.5, 32, 3],
+        [0.5, 24, 3], [0.4, 32, 3], [0.4, 24, 4], [0.3, 24, 4], [0.25, 16, 4]
+      ];
+      let chosen = null, outSize = 0, outData = null;
+      for (let i = 0; i < ladder.length; i++) {
+        const [scale, colors, frameStep] = ladder[i];
+        setStatus(`Auto-fitting… try ${i + 1}/${ladder.length} (scale ${Math.round(scale * 100)}%, ${colors} colors)`);
+        await new Promise(r => setTimeout(r, 10));
+        let data;
+        try { data = await buildGIF(current.decoded, { scale, colors, frameStep, smooth: artMode !== 'pixel' }); }
+        catch (err) { continue; }
+        if (data.length <= cap || i === ladder.length - 1) {
+          chosen = { scale, colors, frameStep }; outSize = data.length; outData = data;
+          if (data.length <= cap) break;
+        }
+        // keep last as fallback
+        chosen = { scale, colors, frameStep }; outSize = data.length; outData = data;
+        if (data.length <= cap) break;
+      }
+      // reflect chosen settings in UI
+      $('scale').value = Math.round(chosen.scale * 100); $('scaleV').textContent = Math.round(chosen.scale * 100) + '%';
+      $('colors').value = chosen.colors; $('colorsV').textContent = chosen.colors;
+      $('dropframes').value = chosen.frameStep; $('dropV').textContent = chosen.frameStep === 1 ? 'Keep all' : ('1 in ' + chosen.frameStep);
+      lastOutputBlob = new Blob([outData], { type: 'image/gif' });
+      showResult(outSize, chosen, true);
+      $('run').disabled = false; $('autofit').disabled = false;
+    };
+
+    function showResult(size, opts, auto) {
+      const cap = selectedTarget.cap;
+      const fits = size <= cap;
+      const v = $('verdict');
+      v.className = 'verdict ' + (fits ? 'good' : 'bad');
+      $('vTitle').textContent = fits
+        ? `Fits ${selectedTarget.name} ✓`
+        : `Still over ${selectedTarget.name}`;
+      const pct = current.size ? Math.round((1 - size / current.size) * 100) : 0;
+      $('vSub').textContent = fits
+        ? `${fmtBytes(size)} — ${pct > 0 ? pct + '% smaller' : 'no reduction'} than original` + (auto ? ' · auto-fitted' : '')
+        : `${fmtBytes(size)} is ${fmtBytes(size - cap)} over the ${fmtBytes(cap)} cap. Try Auto-fit or lower the sliders.`;
+
+      // bar
+      const maxScale = Math.max(size, cap) * 1.12;
+      $('barFill').style.width = Math.min(100, size / maxScale * 100) + '%';
+      $('barFill').style.background = fits ? 'var(--accent-2)' : 'var(--bad)';
+      $('barLimit').style.left = (cap / maxScale * 100) + '%';
+      $('barSize').textContent = fmtBytes(size);
+      $('barCap').textContent = 'cap ' + fmtBytes(cap);
+
+      // compare
+      if (lastOutputBlob) {
+        $('cmpNew').src = URL.createObjectURL(lastOutputBlob);
+      }
+      $('cmpOrigSz').textContent = fmtBytes(current.size);
+      const nsz = $('cmpNewSz'); nsz.textContent = fmtBytes(size);
+      nsz.classList.toggle('smaller', size < current.size);
+
+      $('results').classList.add('show');
+      setStatus('');
+    }
+
+    $('download').onclick = () => {
+      if (!lastOutputBlob) { setStatus('Compress a GIF first, then download.', true); return; }
+      const base = current.name.replace(/\.gif$/i, '');
+      const filename = `${base}-${selectedTarget.id}.gif`;
+      const url = URL.createObjectURL(lastOutputBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+    };
+
+    /* ============================================================
+       GIF DECODER  (GIF87a / GIF89a, LZW)
+       Returns { width, height, frames:[{ delay, rgba(Uint8ClampedArray w*h*4) }] }
+       ============================================================ */
+    function decodeGIF(bytes) {
+      let p = 0;
+      const sig = String.fromCharCode(...bytes.slice(0, 3));
+      if (sig !== 'GIF') throw new Error('not a GIF');
+      p = 6;
+      const width = bytes[p] | (bytes[p + 1] << 8); p += 2;
+      const height = bytes[p] | (bytes[p + 1] << 8); p += 2;
+      const packed = bytes[p++]; const bgIndex = bytes[p++]; p++; // aspect
+      const gctFlag = packed & 0x80;
+      const gctSize = 2 << (packed & 0x07);
+      let gct = null;
+      if (gctFlag) { gct = bytes.subarray(p, p + gctSize * 3); p += gctSize * 3; }
+
+      const frames = [];
+      // canvas state for composition
+      const canvas = new Uint8ClampedArray(width * height * 4); // persists across frames
+      let prevDelay = 10, transIndex = -1, disposal = 0, gDelay = 10;
+      let prevCanvasSnapshot = null;
+
+      while (p < bytes.length) {
+        const b = bytes[p++];
+        if (b === 0x3B) break; // trailer
+        if (b === 0x21) { // extension
+          const label = bytes[p++];
+          if (label === 0xF9) { // graphics control
+            const size = bytes[p++]; // 4
+            const flags = bytes[p];
+            disposal = (flags >> 2) & 0x07;
+            const transFlag = flags & 0x01;
+            gDelay = (bytes[p + 1] | (bytes[p + 2] << 8)) || 10;
+            transIndex = transFlag ? bytes[p + 3] : -1;
+            p += size;
+            p = skipSubBlocks(bytes, p);
+          } else {
+            p = skipSubBlocks(bytes, p);
+          }
+        } else if (b === 0x2C) { // image descriptor
+          const ix = bytes[p] | (bytes[p + 1] << 8); p += 2;
+          const iy = bytes[p] | (bytes[p + 1] << 8); p += 2;
+          const iw = bytes[p] | (bytes[p + 1] << 8); p += 2;
+          const ih = bytes[p] | (bytes[p + 1] << 8); p += 2;
+          const ipacked = bytes[p++];
+          const lctFlag = ipacked & 0x80;
+          const interlace = ipacked & 0x40;
+          const lctSize = 2 << (ipacked & 0x07);
+          let lct = gct;
+          if (lctFlag) { lct = bytes.subarray(p, p + lctSize * 3); p += lctSize * 3; }
+          const minCode = bytes[p++];
+          const { data: indices, next } = lzwDecode(bytes, p, iw * ih, minCode);
+          p = next;
+
+          // snapshot for "restore to previous" disposal
+          if (disposal === 3) prevCanvasSnapshot = canvas.slice();
+
+          // paint indices onto canvas region
+          let di = 0;
+          const deinterlaced = interlace ? deinterlace(indices, iw, ih) : indices;
+          for (let row = 0; row < ih; row++) {
+            for (let col = 0; col < iw; col++) {
+              const idx = deinterlaced[di++];
+              const cx = ix + col, cy = iy + row;
+              if (cx >= width || cy >= height) continue;
+              if (idx === transIndex) continue; // leave existing pixel
+              const o = (cy * width + cx) * 4;
+              const c = idx * 3;
+              canvas[o] = lct[c];
+              canvas[o + 1] = lct[c + 1];
+              canvas[o + 2] = lct[c + 2];
+              canvas[o + 3] = 255;
+            }
+          }
+
+          frames.push({ delay: gDelay, rgba: canvas.slice() });
+
+          // apply disposal for NEXT frame
+          if (disposal === 2) { // restore to background => clear region to transparent
+            for (let row = 0; row < ih; row++) {
+              for (let col = 0; col < iw; col++) {
+                const cx = ix + col, cy = iy + row;
+                if (cx >= width || cy >= height) continue;
+                const o = (cy * width + cx) * 4;
+                canvas[o] = canvas[o + 1] = canvas[o + 2] = 0; canvas[o + 3] = 0;
+              }
+            }
+          } else if (disposal === 3 && prevCanvasSnapshot) {
+            canvas.set(prevCanvasSnapshot);
+          }
+          transIndex = -1; disposal = 0;
+        } else {
+          // unknown; bail to avoid infinite loop
+          break;
+        }
+      }
+      if (!frames.length) throw new Error('no frames found');
+      return { width, height, frames };
+    }
+
+    function skipSubBlocks(bytes, p) {
+      while (true) {
+        const len = bytes[p++];
+        if (len === 0) break;
+        p += len;
+      }
+      return p;
+    }
+
+    function deinterlace(src, w, h) {
+      const out = new Uint8Array(w * h);
+      const passes = [[0, 8], [4, 8], [2, 4], [1, 2]];
+      let s = 0;
+      for (const [start, step] of passes) {
+        for (let row = start; row < h; row += step) {
+          out.set(src.subarray(s, s + w), row * w);
+          s += w;
+        }
+      }
+      return out;
+    }
+
+    function lzwDecode(bytes, p, pixelCount, minCodeSize) {
+      // gather sub-block data
+      const data = [];
+      while (true) {
+        const len = bytes[p++];
+        if (len === 0) break;
+        for (let i = 0; i < len; i++) data.push(bytes[p++]);
+      }
+      const clearCode = 1 << minCodeSize;
+      const eoiCode = clearCode + 1;
+      let codeSize = minCodeSize + 1;
+      let dict = [];
+      const resetDict = () => {
+        dict = [];
+        for (let i = 0; i < clearCode; i++) dict[i] = [i];
+        dict[clearCode] = []; dict[eoiCode] = null;
+      };
+      resetDict();
+
+      const out = new Uint8Array(pixelCount);
+      let oi = 0;
+      let bitPos = 0;
+      const readCode = () => {
+        let code = 0;
+        for (let i = 0; i < codeSize; i++) {
+          const byteIndex = bitPos >> 3;
+          const bit = (data[byteIndex] >> (bitPos & 7)) & 1;
+          code |= bit << i;
+          bitPos++;
+        }
+        return code;
+      };
+      const totalBits = data.length * 8;
+      let prev = null;
+      while (bitPos + codeSize <= totalBits) {
+        const code = readCode();
+        if (code === clearCode) { resetDict(); codeSize = minCodeSize + 1; prev = null; continue; }
+        if (code === eoiCode) break;
+        let entry;
+        if (code < dict.length && dict[code]) entry = dict[code];
+        else if (prev) entry = prev.concat(prev[0]);
+        else break;
+        for (let k = 0; k < entry.length && oi < pixelCount; k++) out[oi++] = entry[k];
+        if (prev) {
+          dict.push(prev.concat(entry[0]));
+          if (dict.length === (1 << codeSize) && codeSize < 12) codeSize++;
+        }
+        prev = entry;
+        if (oi >= pixelCount) break;
+      }
+      return { data: out, next: p };
+    }
+
+    /* ============================================================
+       TRANSFORM + GIF ENCODER
+       - resize via canvas
+       - median-cut palette quantization to N colors
+       - Floyd–Steinberg-lite (nearest, no dither for size) mapping
+       - LZW encode, single global palette
+       ============================================================ */
+    async function buildGIF(decoded, opts, onProgress) {
+      const scale = opts.scale ?? 1;
+      const colors = Math.max(2, Math.min(256, opts.colors ?? 256));
+      const step = Math.max(1, opts.frameStep ?? 1);
+      const smooth = opts.smooth !== false; // false = crisp nearest-neighbor for pixel art
+
+      const ow = decoded.width, oh = decoded.height;
+      const nw = Math.max(1, Math.round(ow * scale));
+      const nh = Math.max(1, Math.round(oh * scale));
+
+      // pick frames
+      const src = decoded.frames;
+      const picked = [];
+      for (let i = 0; i < src.length; i += step) picked.push(src[i]);
+      if (!picked.length) picked.push(src[0]);
+
+      // resize each frame into RGBA at nw x nh
+      const cv = document.createElement('canvas'); cv.width = nw; cv.height = nh;
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = smooth;
+      if (smooth) ctx.imageSmoothingQuality = 'high';
+      const srcCv = document.createElement('canvas'); srcCv.width = ow; srcCv.height = oh;
+      const srcCtx = srcCv.getContext('2d');
+
+      const resized = [];
+      const delays = [];
+      for (let i = 0; i < picked.length; i++) {
+        const fr = picked[i];
+        const imgData = new ImageData(new Uint8ClampedArray(fr.rgba), ow, oh);
+        srcCtx.putImageData(imgData, 0, 0);
+        ctx.clearRect(0, 0, nw, nh);
+        ctx.drawImage(srcCv, 0, 0, nw, nh);
+        resized.push(ctx.getImageData(0, 0, nw, nh).data);
+        // when dropping frames, accumulate delay so playback speed stays ~same
+        delays.push(fr.delay * step);
+        if (onProgress) onProgress(i + 1, picked.length);
+        if (i % 4 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+
+      // build a GLOBAL palette by sampling all frames
+      const palette = buildPalette(resized, nw, nh, colors);
+      const pal = palette.colors;          // Uint8Array len*3
+      const palLen = palette.count;
+
+      // map each frame to indices against global palette
+      const framesIdx = resized.map(rgba => mapToPalette(rgba, pal, palLen));
+
+      return encodeGIF(nw, nh, pal, palLen, framesIdx, delays);
+    }
+
+    // ---- median-cut quantization over sampled pixels of all frames ----
+    function buildPalette(frames, w, h, maxColors) {
+      // sample pixels (skip fully transparent)
+      const samples = [];
+      const total = frames.length * w * h;
+      const stride = Math.max(1, Math.floor(total / 24000)); // cap sample count
+      let counter = 0;
+      for (const f of frames) {
+        for (let i = 0; i < f.length; i += 4) {
+          counter++;
+          if (counter % stride !== 0) continue;
+          if (f[i + 3] < 128) continue;
+          samples.push([f[i], f[i + 1], f[i + 2]]);
+        }
+      }
+      if (!samples.length) samples.push([0, 0, 0]);
+
+      // median cut
+      let boxes = [samples];
+      while (boxes.length < maxColors) {
+        // find box with largest range
+        let bi = -1, bestRange = -1, bestChan = 0;
+        for (let i = 0; i < boxes.length; i++) {
+          const box = boxes[i];
+          if (box.length < 2) continue;
+          let mn = [255, 255, 255], mx = [0, 0, 0];
+          for (const px of box) {
+            for (let c = 0; c < 3; c++) { if (px[c] < mn[c]) mn[c] = px[c]; if (px[c] > mx[c]) mx[c] = px[c]; }
+          }
+          for (let c = 0; c < 3; c++) {
+            const range = mx[c] - mn[c];
+            if (range > bestRange) { bestRange = range; bi = i; bestChan = c; }
+          }
+        }
+        if (bi < 0) break;
+        const box = boxes[bi];
+        box.sort((a, b) => a[bestChan] - b[bestChan]);
+        const mid = box.length >> 1;
+        const b1 = box.slice(0, mid), b2 = box.slice(mid);
+        boxes.splice(bi, 1, b1, b2);
+      }
+
+      // average each box => palette color
+      const pal = new Uint8Array(boxes.length * 3);
+      boxes.forEach((box, i) => {
+        let r = 0, g = 0, b = 0;
+        for (const px of box) { r += px[0]; g += px[1]; b += px[2]; }
+        const n = box.length || 1;
+        pal[i * 3] = Math.round(r / n);
+        pal[i * 3 + 1] = Math.round(g / n);
+        pal[i * 3 + 2] = Math.round(b / n);
+      });
+      return { colors: pal, count: boxes.length };
+    }
+
+    function mapToPalette(rgba, pal, palLen) {
+      const n = rgba.length / 4;
+      const idx = new Uint8Array(n);
+      // simple cache for speed
+      const cache = new Map();
+      for (let i = 0; i < n; i++) {
+        const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+        const key = (r << 16) | (g << 8) | b;
+        let best = cache.get(key);
+        if (best === undefined) {
+          let bd = Infinity;
+          for (let c = 0; c < palLen; c++) {
+            const dr = r - pal[c * 3], dg = g - pal[c * 3 + 1], db = b - pal[c * 3 + 2];
+            const d = dr * dr + dg * dg + db * db;
+            if (d < bd) { bd = d; best = c; }
+          }
+          cache.set(key, best);
+        }
+        idx[i] = best;
+      }
+      return idx;
+    }
+
+    /* ---- GIF ENCODER (global palette, LZW) ---- */
+    function encodeGIF(w, h, pal, palLen, framesIdx, delays) {
+      // color table must be a power of two, 2..256
+      let tableSize = 2;
+      while (tableSize < palLen) tableSize <<= 1;
+      if (tableSize > 256) tableSize = 256;
+      const colorBits = Math.log2(tableSize); // 1..8
+      const minCode = Math.max(2, colorBits); // LZW min code size >= 2
+
+      const bytes = [];
+      const push = (...b) => { for (const x of b) bytes.push(x & 0xFF); };
+      const pushStr = s => { for (let i = 0; i < s.length; i++) bytes.push(s.charCodeAt(i)); };
+      const pushShort = v => { bytes.push(v & 0xFF, (v >> 8) & 0xFF); };
+
+      pushStr('GIF89a');
+      pushShort(w); pushShort(h);
+      // packed: GCT flag=1, color res=colorBits-1, sort=0, GCT size
+      const gctSizeField = colorBits - 1;
+      push(0x80 | (gctSizeField << 4) | gctSizeField);
+      push(0); // bg
+      push(0); // aspect
+      // global color table
+      for (let i = 0; i < tableSize; i++) {
+        if (i < palLen) push(pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2]);
+        else push(0, 0, 0);
+      }
+      // NETSCAPE loop extension
+      push(0x21, 0xFF, 0x0B);
+      pushStr('NETSCAPE2.0');
+      push(0x03, 0x01); pushShort(0); push(0x00);
+
+      for (let f = 0; f < framesIdx.length; f++) {
+        const delay = Math.max(2, Math.round((delays[f] || 10))); // in 1/100s
+        // graphics control extension
+        push(0x21, 0xF9, 0x04, 0x00);
+        pushShort(delay);
+        push(0x00, 0x00);
+        // image descriptor
+        push(0x2C);
+        pushShort(0); pushShort(0);
+        pushShort(w); pushShort(h);
+        push(0x00); // no local color table
+        // LZW data
+        push(minCode);
+        const lzw = lzwEncode(framesIdx[f], minCode);
+        // sub-blocks
+        let o = 0;
+        while (o < lzw.length) {
+          const chunk = Math.min(255, lzw.length - o);
+          push(chunk);
+          for (let i = 0; i < chunk; i++) bytes.push(lzw[o + i]);
+          o += chunk;
+        }
+        push(0x00); // block terminator
+      }
+      push(0x3B); // trailer
+      return new Uint8Array(bytes);
+    }
+
+    function lzwEncode(indices, minCode) {
+      const clearCode = 1 << minCode;
+      const eoiCode = clearCode + 1;
+      let codeSize = minCode + 1;
+      let dict = new Map();
+      const resetDict = () => {
+        dict = new Map();
+        for (let i = 0; i < clearCode; i++) dict.set(String.fromCharCode(i), i);
+      };
+      let dictNext = eoiCode + 1;
+      resetDict();
+
+      const out = [];
+      let cur = 0, curBits = 0;
+      const emit = code => {
+        cur |= code << curBits;
+        curBits += codeSize;
+        while (curBits >= 8) { out.push(cur & 0xFF); cur >>= 8; curBits -= 8; }
+      };
+
+      emit(clearCode);
+      let w = '';
+      for (let i = 0; i < indices.length; i++) {
+        const c = String.fromCharCode(indices[i]);
+        const wc = w + c;
+        if (dict.has(wc)) { w = wc; }
+        else {
+          emit(dict.get(w));
+          dict.set(wc, dictNext++);
+          if (dictNext > (1 << codeSize) && codeSize < 12) codeSize++;
+          if (dictNext >= 4096) { emit(clearCode); resetDict(); dictNext = eoiCode + 1; codeSize = minCode + 1; }
+          w = c;
+        }
+      }
+      if (w !== '') emit(dict.get(w));
+      emit(eoiCode);
+      if (curBits > 0) out.push(cur & 0xFF);
+      return out;
+    }
+  </script>
+</body>
+
+</html>
