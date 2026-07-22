@@ -2,6 +2,8 @@
 
 Compress animated GIFs to fit social network upload limits — right in your browser. No uploads, no watermark, no server.
 
+**[Try it live →](https://pixelsushirobot.github.io/fit.gif/)**
+
 Built for **X/Twitter**, **Farcaster**, and **Discord**, and tuned for 2D illustration and pixel art loops.
 
 ## Why
@@ -31,7 +33,7 @@ No dependencies, no build step, no network calls.
 
 ## Usage
 
-Open the hosted page, drop in a GIF, pick a target, and either adjust the sliders or hit **Auto-fit**. Download the result when it fits.
+Open the [live page](https://pixelsushirobot.github.io/fit.gif/), drop in a GIF, pick a target, and either adjust the sliders or hit **Auto-fit**. Download the result when it fits.
 
 Or run it locally — download `index.html` and open it in any browser. It's a single self-contained file.
 
