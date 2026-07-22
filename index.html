@@ -720,6 +720,7 @@
                 <div class="row" id="fsize">—</div>
                 <div class="row" id="fframes">—</div>
                 <div class="row" id="ffps">—</div>
+                <div class="row" id="ftype">—</div>
               </div>
             </div>
           </div>
@@ -750,13 +751,13 @@
           <div class="ctrl">
             <div class="lab"><b>Resize</b><span class="v" id="scaleV">100%</span></div>
             <input type="range" id="scale" min="20" max="100" value="100" step="5">
-            <div class="hint">On flat art, cut colors first — resize is the fallback for tight caps.</div>
+            <div class="hint" id="scaleHint">On flat art, cut colors first — resize is the fallback for tight caps.</div>
           </div>
 
           <div class="ctrl">
             <div class="lab"><b>Colors</b><span class="v" id="colorsV">256</span></div>
             <input type="range" id="colors" min="8" max="256" value="256" step="8">
-            <div class="hint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.
+            <div class="hint" id="colorsHint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.
             </div>
           </div>
 
@@ -827,7 +828,7 @@
       </div>
     </div>
 
-    <span class="foot">Runs entirely in your browser &middot; Your GIF never leaves your device`</span>
+    <span class="foot">Runs entirely in your browser &middot; Your GIF never leaves your device</span>
   </div>
 
   <script>
@@ -909,17 +910,31 @@
     }
 
     // ---------- Art mode toggle ----------
+    // Per-art-type guidance. Illustration and pixel art want different advice:
+    // illustration compresses best via palette cuts; pixel art wants crisp resize and
+    // shouldn't have its already-tiny palette over-reduced.
     const ART_HINTS = {
-      illustration: 'Smooth downscaling for 2D illustration & cel art. Nearest-color palette, no dither.',
-      pixel: 'Crisp nearest-neighbor resize keeps pixels sharp. No smoothing, no dither.'
+      illustration: {
+        art: 'Smooth downscaling for 2D illustration & cel art. Nearest-color palette, no dither.',
+        scale: 'On flat art, cut colors first — resize is the fallback for tight caps.',
+        colors: 'Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.'
+      },
+      pixel: {
+        art: 'Crisp nearest-neighbor resize keeps pixels sharp. No smoothing, no dither.',
+        scale: 'Prefer whole-number scales (50%, 25%) so the pixel grid stays aligned. Off-grid values blur the pixels.',
+        colors: "Pixel art already uses a tight palette — don't over-cut. Try 64–128; going too low crushes dithering and shading."
+      }
     };
+    function setArtMode(mode) {
+      artMode = mode;
+      $('artmode').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+      const h = ART_HINTS[artMode];
+      $('artHint').textContent = h.art;
+      $('scaleHint').textContent = h.scale;
+      $('colorsHint').textContent = h.colors;
+    }
     $('artmode').querySelectorAll('.seg-btn').forEach(btn => {
-      btn.onclick = () => {
-        artMode = btn.dataset.mode;
-        $('artmode').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('on'));
-        btn.classList.add('on');
-        $('artHint').textContent = ART_HINTS[artMode];
-      };
+      btn.onclick = () => setArtMode(btn.dataset.mode);
     });
 
     // ---------- File input / drop ----------
@@ -962,6 +977,11 @@
       $('results').classList.remove('show');
       updateDropLabel(+$('dropframes').value);
 
+      // detect content type -> informational label (pixel art vs illustration)
+      const detected = detectArtType(decoded);
+      current.detected = detected;
+      $('ftype').textContent = 'looks like ' + detected.label;
+
       // large-file guardrail: many-frame, high-res GIFs are slow in a from-scratch decoder
       const px = decoded.width * decoded.height * decoded.frames.length;
       if (px > 120e6) {
@@ -982,6 +1002,148 @@
 
     function setStatus(msg, err) {
       const s = $('status'); s.textContent = msg; s.classList.toggle('err', !!err);
+    }
+
+    // ============================================================
+    //  CONTENT-TYPE DETECTION (heuristic, first frame)
+    //  Categories: pixel art | illustration  (tool is focused on these two)
+    //  - pixel art  -> label it so the user can pick crisp mode
+    //  - illustration -> current defaults are ideal
+    //
+    //  Key idea: pixel art — even detailed, many-color pixel art — is built on a
+    //  consistent small pixel lattice. Color changes (edges) land on a regular
+    //  period. We detect that period directly, so color count no longer gates it.
+    // ============================================================
+    function detectArtType(decoded) {
+      const w = decoded.width, h = decoded.height;
+      const rgba = decoded.frames[0].rgba;
+
+      // --- unique color count (quantized to 5 bits/channel to ignore noise) ---
+      const seen = new Set();
+      const stride = Math.max(1, Math.floor((w * h) / 20000));
+      for (let i = 0; i < w * h; i += stride) {
+        const o = i * 4;
+        if (rgba[o + 3] < 128) continue;
+        seen.add(((rgba[o] >> 3) << 10) | ((rgba[o + 1] >> 3) << 5) | (rgba[o + 2] >> 3));
+      }
+      const uniqueColors = seen.size;
+
+      // --- edge softness: of the pixels that change vs their neighbor, how many
+      //     change GRADUALLY (gradient / anti-alias) vs sharply? ---
+      let hard = 0, soft = 0;
+      const rowStep = Math.max(1, Math.floor(h / 120));
+      const colStep = Math.max(1, Math.floor(w / 120));
+      for (let y = 0; y < h; y += rowStep) {
+        for (let x = 0; x < w - 1; x += colStep) {
+          const o = (y * w + x) * 4, o2 = o + 4;
+          if (rgba[o + 3] < 128 || rgba[o2 + 3] < 128) continue;
+          const d = Math.abs(rgba[o] - rgba[o2]) + Math.abs(rgba[o + 1] - rgba[o2 + 1]) + Math.abs(rgba[o + 2] - rgba[o2 + 2]);
+          if (d === 0) continue;
+          if (d > 90) hard++; else soft++;
+        }
+      }
+      const changing = hard + soft;
+      const softRatio = changing ? soft / changing : 0;
+
+      // --- checkerboard-dither detection ---
+      //   Halftone/dither pixel art alternates high-contrast pixels: a 2x2 cell where
+      //   the DIAGONAL pair matches but the HORIZONTAL neighbors differ sharply. This
+      //   is the signature that fooled the softRatio test (dither reads as "soft").
+      const px = (x, y) => (y * w + x) * 4;
+      const cdist = (a, b) => Math.abs(rgba[a] - rgba[b]) + Math.abs(rgba[a + 1] - rgba[b + 1]) + Math.abs(rgba[a + 2] - rgba[b + 2]);
+      let ditherMatches = 0, ditherChecked = 0;
+      for (let y = 0; y < h - 1; y += rowStep) {
+        for (let x = 0; x < w - 1; x += colStep) {
+          const p1 = px(x, y), p2 = px(x + 1, y), p3 = px(x, y + 1), p4 = px(x + 1, y + 1);
+          if (rgba[p1 + 3] < 128 || rgba[p2 + 3] < 128 || rgba[p3 + 3] < 128 || rgba[p4 + 3] < 128) continue;
+          ditherChecked++;
+          // diagonals equal, adjacent horizontal/vertical sharply different => checkerboard
+          if (cdist(p1, p4) < 15 && cdist(p2, p3) < 15 && cdist(p1, p2) > 50 && cdist(p1, p3) > 50) ditherMatches++;
+        }
+      }
+      const ditherRatio = ditherChecked ? ditherMatches / ditherChecked : 0;
+      const isDithered = ditherRatio > 0.06;
+
+      // --- grid-period detection: the defining pixel-art signal ---
+      const grid = detectGridPeriod(rgba, w, h);
+
+      // --- classify ---
+      // The grid period is the trustworthy signal. softRatio is NOT reliable: native-res
+      // pixel art displayed off its native grid (resampled/JPEG-fringed) shows many
+      // "soft" boundary pixels even though it's crisp pixel art — so we never let a high
+      // softRatio veto pixel art when the palette + grid signals agree.
+
+      // Pixel art, case A — strong upscale grid.
+      if (grid.confidence >= 0.45 && grid.period >= 2) {
+        return { type: 'pixel', label: 'pixel art', reason: `color changes align to a ~${grid.period}px grid` };
+      }
+      // Pixel art, case B — small palette AND a detected grid period >= 2 (even at low
+      // grid confidence).
+      if (uniqueColors <= 256 && grid.period >= 2 && grid.confidence >= 0.12) {
+        return { type: 'pixel', label: 'pixel art', reason: `limited palette on a ~${grid.period}px grid` };
+      }
+      // Pixel art, case C — dithered, or small palette with genuinely hard edges.
+      if (isDithered || (uniqueColors <= 128 && softRatio < 0.35 && hard > 30)) {
+        return {
+          type: 'pixel', label: 'pixel art',
+          reason: isDithered ? 'pixel dithering detected' : 'small palette with hard, aliased edges'
+        };
+      }
+      // Everything else is illustration (the tool's default focus).
+      return { type: 'illustration', label: 'illustration', reason: 'clean edges, no pixel grid' };
+    }
+
+    // Find the dominant spacing between color-change edges. Real pixel art snaps to a
+    // regular period (the native pixel size after any upscaling); photos and smooth
+    // illustration have edges at irregular spacings. Returns { period, confidence 0..1 }.
+    function detectGridPeriod(rgba, w, h) {
+      const maxP = 16;                 // consider block sizes 1..16 px
+      const gapHist = new Array(maxP + 1).fill(0);
+      let totalGaps = 0;
+
+      const scan = (horizontal) => {
+        const lines = horizontal ? h : w;
+        const len = horizontal ? w : h;
+        const lineStep = Math.max(1, Math.floor(lines / 100)); // ~100 lines each way
+        for (let l = 0; l < lines; l += lineStep) {
+          let lastEdge = 0;
+          for (let i = 1; i < len; i++) {
+            const a = horizontal ? (l * w + i) * 4 : (i * w + l) * 4;
+            const b = horizontal ? (l * w + (i - 1)) * 4 : ((i - 1) * w + l) * 4;
+            const diff = Math.abs(rgba[a] - rgba[b]) + Math.abs(rgba[a + 1] - rgba[b + 1]) + Math.abs(rgba[a + 2] - rgba[b + 2]) + Math.abs(rgba[a + 3] - rgba[b + 3]);
+            if (diff > 24) {           // an edge (color change) here
+              const gap = i - lastEdge;
+              if (gap >= 1 && gap <= maxP) { gapHist[gap]++; totalGaps++; }
+              lastEdge = i;
+            }
+          }
+        }
+      };
+      scan(true);
+      scan(false);
+      if (totalGaps < 60) return { period: 1, confidence: 0 };
+
+      // The base period is the smallest gap that occurs often. Pixel art produces a
+      // sharp spike at its native block size (and multiples); smooth content spreads
+      // gaps out with a big pile at gap=1.
+      const oneShare = gapHist[1] / totalGaps;
+
+      // find best period >=2 by how much it + its multiples dominate
+      let bestP = 0, bestScore = 0;
+      for (let p = 2; p <= 8; p++) {
+        let onGrid = 0;
+        for (let m = p; m <= maxP; m += p) onGrid += gapHist[m];
+        const score = onGrid / totalGaps;
+        if (score > bestScore) { bestScore = score; bestP = p; }
+      }
+
+      // Confidence: high when a period>=2 captures most gaps AND single-pixel edges
+      // aren't dominating (which would mean noisy / photographic).
+      let confidence = bestScore - oneShare * 0.8;
+      // reward a clean dominant spike at exactly bestP
+      if (bestP >= 2) confidence += (gapHist[bestP] / totalGaps) * 0.5;
+      confidence = Math.max(0, Math.min(1, confidence));
+      return { period: bestP || 1, confidence };
     }
 
     // ---------- Compress with current settings ----------
@@ -1063,7 +1225,7 @@
       // bar
       const maxScale = Math.max(size, cap) * 1.12;
       $('barFill').style.width = Math.min(100, size / maxScale * 100) + '%';
-      $('barFill').style.background = fits ? 'var(--accent-2)' : 'var(--bad)';
+      $('barFill').style.background = fits ? 'var(--accent)' : 'var(--bad)';
       $('barLimit').style.left = (cap / maxScale * 100) + '%';
       $('barSize').textContent = fmtBytes(size);
       $('barCap').textContent = 'cap ' + fmtBytes(cap);

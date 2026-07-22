@@ -14,6 +14,7 @@ Social platforms cap GIF uploads (X at 15 MB, Farcaster at 10 MB, Discord at 10 
 - **Auto-fit** — one click finds a setting combination that lands under the selected cap.
 - **Three compression levers** — palette reduction (8–256 colors), frame-dropping (keep-all through 1-in-4), and resize (20–100%).
 - **Tuned for flat art** — cuts colors and drops frames before resizing, so illustration and pixel-art loops keep their dimensions as long as possible.
+- **Art-type detection** — automatically recognizes pixel art vs. illustration on upload (via pixel-grid, palette, and dithering analysis) and tailors the on-screen guidance to match.
 - **Pixel-art mode** — crisp nearest-neighbor resizing that keeps pixels sharp; illustration mode uses smooth downscaling. Neither dithers, keeping flat color areas clean.
 - **Pass/fail verdict** — shows whether the result fits, a size-vs-cap bar, and a before/after preview.
 - **Light / dark / system themes** — monochrome, follows your OS by default.
