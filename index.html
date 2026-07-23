@@ -573,11 +573,26 @@
       color: var(--accent);
     }
 
+    /* MP4 advisory (shown when GIF is being forced under the cap) */
+    .mp4advice {
+      display: none;
+      margin-top: 14px;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--text);
+      background: var(--chip);
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+    .mp4advice.show { display: block; }
+    .mp4advice b { color: var(--text); font-weight: 600; }
+
     .bar {
       height: 8px;
       background: var(--line-2);
       border: 1px solid var(--line);
-      margin: 18px 0 6px;
+      margin: 34px 0 8px;
       position: relative;
       overflow: visible;
     }
@@ -614,6 +629,7 @@
       font-size: 10px;
       color: var(--muted);
       letter-spacing: 0.06em;
+      margin-bottom: 20px;
     }
 
     #status {
@@ -653,31 +669,6 @@
     @keyframes sweep {
       0% { margin-left: -35%; }
       100% { margin-left: 100%; }
-    }
-
-    .tips {
-      margin-top: 18px;
-    }
-
-    .tips .panel {
-      padding: 20px 22px;
-    }
-
-    .tips ul {
-      margin: 0;
-      padding-left: 16px;
-    }
-
-    .tips li {
-      margin-bottom: 9px;
-      font-size: 11.5px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-
-    .tips li b {
-      color: var(--accent);
-      font-weight: 600;
     }
 
     .foot {
@@ -833,26 +824,10 @@
             </div>
           </div>
 
+          <div class="mp4advice" id="mp4advice"></div>
+
           <button class="btn" id="download" style="margin-top:16px;">&#8681; Download compressed GIF</button>
         </div>
-      </div>
-    </div>
-
-    <div class="tips">
-      <div class="panel">
-        <h2><span class="num">→</span> Tuned for 2D illustration &amp; pixel art loops</h2>
-        <ul>
-          <li><b>Cut colors first.</b> Flat cel art and pixel art use narrow palettes — 64 colors is usually invisible,
-            32 is fine for two-tone loops. This is the biggest win here, not resize.</li>
-          <li><b>Then drop frames.</b> A 24fps loop trimmed to every-2nd-frame plays at ~12fps and roughly halves size
-            with no perceptible change.</li>
-          <li><b>Resize last.</b> Only shrink dimensions when colors + frames aren't enough — most feeds display GIFs
-            small anyway.</li>
-          <li><b>Pick your art type.</b> "Pixel art (crisp)" disables smoothing so pixels stay sharp; "Illustration"
-            uses high-quality smooth downscaling. Neither dithers, which keeps flat color areas clean.</li>
-          <li><b>Still too big?</b> If the platform accepts video (X and Farcaster do), an MP4 export of the same loop
-            is usually far smaller than any GIF.</li>
-        </ul>
       </div>
     </div>
 
@@ -1309,8 +1284,31 @@
       const nsz = $('cmpNewSz'); nsz.textContent = fmtBytes(size);
       nsz.classList.toggle('smaller', size < current.size);
 
+      // MP4 advisory — show when the GIF is being forced under the cap at real quality cost,
+      // or can't fit at all. All three targets (X, Farcaster, Discord) accept video.
+      updateMp4Advice(fits, opts);
+
       $('results').classList.add('show');
       setStatus('');
+    }
+
+    function updateMp4Advice(fits, opts) {
+      const el = $('mp4advice');
+      const heavyResize = (opts.scale ?? 1) < 0.5;
+      const heavyColors = (opts.colors ?? 256) < 32;
+      const droppedFrames = (opts.frameStep ?? 1) > 1;
+      let msg = '';
+      if (!fits) {
+        msg = `Even at these settings it won't fit ${selectedTarget.name}. GIF's palette makes this hard — the same loop as <b>MP4</b> would fit easily at full quality. ${selectedTarget.name} accepts MP4.`;
+      } else if (heavyResize || heavyColors || droppedFrames) {
+        const costs = [];
+        if (heavyResize) costs.push(`${Math.round((opts.scale) * 100)}% size`);
+        if (heavyColors) costs.push(`${opts.colors} colors`);
+        if (droppedFrames) costs.push('fewer frames');
+        msg = `This fit needed heavy compression (${costs.join(', ')}). The same loop as <b>MP4</b> would be a fraction the size at full quality — ${selectedTarget.name} accepts MP4.`;
+      }
+      if (msg) { el.innerHTML = msg; el.classList.add('show'); }
+      else { el.classList.remove('show'); el.innerHTML = ''; }
     }
 
     $('download').onclick = () => {
