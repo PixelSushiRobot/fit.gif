@@ -25,7 +25,6 @@
       --chip: #16161a;
       --checker-a: #1a1a1e;
       --checker-b: #111;
-      --sel: rgba(236, 236, 239, 0.07);
     }
 
     /* Light theme — monochrome */
@@ -46,7 +45,6 @@
       --chip: #f0f0ec;
       --checker-a: #e2e2dd;
       --checker-b: #f4f4f2;
-      --sel: rgba(22, 22, 26, 0.06);
     }
 
     /* System default: follow OS when no explicit theme is chosen */
@@ -68,7 +66,6 @@
         --chip: #f0f0ec;
         --checker-a: #e2e2dd;
         --checker-b: #f4f4f2;
-        --sel: rgba(22, 22, 26, 0.06);
       }
     }
 
@@ -146,6 +143,7 @@
     .head-r {
       display: flex;
       align-items: flex-start;
+      gap: 8px;
     }
 
     .theme-toggle {
@@ -245,7 +243,7 @@
 
     #drop.hot {
       border-color: var(--text);
-      background: var(--sel);
+      background: color-mix(in srgb, var(--bg) 98%, var(--text) 2%);
     }
 
     #drop .t {
@@ -272,27 +270,33 @@
       gap: 8px;
     }
 
+    /* Target buttons follow the reference "pill" model: the border derives from the
+       element's own text color at 50% opacity, so shifting `color` on hover/selected
+       automatically darkens the border. Hover and selected share the same treatment
+       (stronger text + faint fill); selected+hover nudges slightly darker. */
     .tgt {
-      border: 1px solid var(--line);
-      background: var(--chip);
+      border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
+      background: transparent;
+      color: var(--muted);
       font-family: inherit;
       padding: 12px 14px;
       cursor: pointer;
       text-align: left;
-      transition: 0.12s;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
     }
 
-    .tgt:hover {
-      border-color: var(--dim);
+    .tgt:hover,
+    .tgt.on {
+      color: var(--text);
+      background: color-mix(in srgb, var(--bg) 98%, var(--text) 2%);
     }
 
-    .tgt.on {
-      border-color: var(--text);
-      background: var(--sel);
+    .tgt.on:hover {
+      background: color-mix(in srgb, var(--bg) 96%, var(--text) 4%);
     }
 
     .tgt .n {
@@ -300,22 +304,18 @@
       font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--text);
+      color: inherit;
     }
 
     .tgt .c {
       font-size: 11px;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--line);
+      color: inherit;
+      opacity: 0.7;
+      background: transparent;
+      border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
       padding: 3px 9px;
       border-radius: 20px;
       white-space: nowrap;
-    }
-
-    .tgt.on .c {
-      color: var(--text);
-      border-color: var(--dim);
     }
 
     /* sliders */
@@ -353,17 +353,39 @@
 
     select {
       width: 100%;
-      padding: 9px 10px;
-      border: 1px solid var(--line);
-      background: var(--chip);
+      padding: 9px 34px 9px 12px;
+      border: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
+      background: transparent;
       color: var(--text);
       font-family: inherit;
       font-size: 12px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      transition: border-color 0.12s;
+    }
+
+    .selectwrap {
+      position: relative;
+    }
+
+    .selectwrap::after {
+      content: "";
+      position: absolute;
+      right: 13px;
+      top: 50%;
+      width: 5px;
+      height: 5px;
+      margin-top: -4px;
+      border-right: 1px solid var(--muted);
+      border-bottom: 1px solid var(--muted);
+      transform: rotate(45deg);
+      pointer-events: none;
     }
 
     select:focus {
       outline: none;
-      border-color: var(--dim);
+      border-color: var(--text);
     }
 
     .hint {
@@ -376,26 +398,26 @@
 
     .seg {
       display: flex;
-      border: 1px solid var(--line);
+      border: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
     }
 
     .seg-btn {
       flex: 1;
       padding: 10px 8px;
       border: none;
-      background: var(--chip);
+      background: transparent;
       font-family: inherit;
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
       color: var(--muted);
-      transition: 0.12s;
+      transition: color 0.12s, background 0.12s;
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
 
     .seg-btn+.seg-btn {
-      border-left: 1px solid var(--line);
+      border-left: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
     }
 
     .seg-btn.on {
@@ -418,7 +440,7 @@
       transition: 0.12s;
     }
 
-    .btn:hover:not(:disabled) {
+    .btn:not(.ghost):hover:not(:disabled) {
       opacity: 0.82;
     }
 
@@ -435,7 +457,6 @@
 
     .btn.ghost:hover:not(:disabled) {
       border-color: var(--accent);
-      color: var(--accent);
       background: transparent;
     }
 
@@ -788,12 +809,14 @@
 
           <div class="ctrl">
             <div class="lab"><b>Drop frames</b><span class="v" id="dropV">Keep all</span></div>
-            <select id="dropframes">
-              <option value="1">Keep all frames</option>
-              <option value="2">Drop every 2nd frame (~50%)</option>
-              <option value="3">Drop every 3rd frame</option>
-              <option value="4">Drop every 4th frame</option>
-            </select>
+            <div class="selectwrap">
+              <select id="dropframes">
+                <option value="1">Keep all frames</option>
+                <option value="2">Drop every 2nd frame (~50%)</option>
+                <option value="3">Drop every 3rd frame</option>
+                <option value="4">Drop every 4th frame</option>
+              </select>
+            </div>
             <div class="hint" id="fpsHint">A 24fps loop drops to ~12fps at every-2nd-frame — usually imperceptible.
             </div>
           </div>
