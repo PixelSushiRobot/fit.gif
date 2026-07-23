@@ -13,10 +13,10 @@ Social platforms cap GIF uploads (X at 15 MB, Farcaster at 10 MB, Discord at 10 
 ## Features
 
 - **Platform targets** — pick X, Farcaster, or Discord and see the exact cap you're fitting under, with a built-in safety buffer so uploads aren't rejected at the edge.
-- **Auto-fit** — one click finds a setting combination that lands under the selected cap.
-- **Three compression levers** — palette reduction (8–256 colors), frame-dropping (keep-all through 1-in-4), and resize (20–100%).
-- **Tuned for flat art** — cuts colors and drops frames before resizing, so illustration and pixel-art loops keep their dimensions as long as possible.
+- **Auto-fit** — one click walks a settings ladder and stops at the first combination that lands under the selected cap, with a progress bar so you can see it working.
+- **Art-aware auto-fit** — the ladder adapts to your content: illustration favors palette cuts and flexible resizing; pixel art resizes only on whole-number ratios (½, ⅓, ¼) to keep the grid crisp and preserves the full palette (since detailed and dithered work relies on it). Frame-dropping is always a last resort so smooth loops stay smooth.
 - **Art-type detection** — automatically recognizes pixel art vs. illustration on upload (via pixel-grid, palette, and dithering analysis) and tailors the on-screen guidance to match.
+- **Three compression levers** — palette reduction (8–256 colors), frame-dropping (keep-all through 1-in-4), and resize (20–100%).
 - **Pixel-art mode** — crisp nearest-neighbor resizing that keeps pixels sharp; illustration mode uses smooth downscaling. Neither dithers, keeping flat color areas clean.
 - **Pass/fail verdict** — shows whether the result fits, a size-vs-cap bar, and a before/after preview.
 - **Light / dark / system themes** — monochrome, follows your OS by default.
@@ -27,7 +27,7 @@ Everything runs client-side in vanilla JavaScript:
 
 1. Decodes the GIF (GIF87a/89a, LZW, handling interlacing and frame disposal).
 2. Resizes and requantizes each frame to a shared color palette (median-cut).
-3. Re-encodes to a valid looping GIF.
+3. Re-encodes to a valid looping GIF, preserving playback speed even when frames are dropped.
 
 No dependencies, no build step, no network calls.
 
