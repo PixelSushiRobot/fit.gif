@@ -585,8 +585,15 @@
       line-height: 1.55;
       color: var(--muted);
     }
-    .mp4advice.show { display: block; }
-    .mp4advice b { color: var(--text); font-weight: 600; }
+
+    .mp4advice.show {
+      display: block;
+    }
+
+    .mp4advice b {
+      color: var(--text);
+      font-weight: 600;
+    }
 
     .bar {
       height: 8px;
@@ -654,21 +661,32 @@
       opacity: 0;
       transition: opacity 0.15s;
     }
-    .progress.show { opacity: 1; }
+
+    .progress.show {
+      opacity: 1;
+    }
+
     .progress-fill {
       height: 100%;
       width: 0;
       background: var(--accent);
       transition: width 0.2s ease;
     }
+
     /* indeterminate sweep for a single compress pass (unknown duration) */
     .progress.indet .progress-fill {
       width: 35%;
       animation: sweep 1s ease-in-out infinite;
     }
+
     @keyframes sweep {
-      0% { margin-left: -35%; }
-      100% { margin-left: 100%; }
+      0% {
+        margin-left: -35%;
+      }
+
+      100% {
+        margin-left: 100%;
+      }
     }
 
     .foot {
@@ -769,13 +787,15 @@
           <div class="ctrl">
             <div class="lab"><b>Resize</b><span class="v" id="scaleV">100%</span></div>
             <input type="range" id="scale" min="20" max="100" value="100" step="5">
-            <div class="hint" id="scaleHint">On flat art, cut colors first — resize is the fallback for tight caps.</div>
+            <div class="hint" id="scaleHint">On flat art, cut colors first — resize is the fallback for tight caps.
+            </div>
           </div>
 
           <div class="ctrl">
             <div class="lab"><b>Colors</b><span class="v" id="colorsV">256</span></div>
             <input type="range" id="colors" min="8" max="256" value="256" step="8">
-            <div class="hint" id="colorsHint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.
+            <div class="hint" id="colorsHint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for
+              two-tone loops.
             </div>
           </div>
 
@@ -794,7 +814,9 @@
           <button class="btn ghost" id="autofit" disabled style="margin-bottom:10px;">&#9889; Auto-fit to
             target</button>
           <button class="btn" id="run" disabled>Compress GIF</button>
-          <div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress" id="progress">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
           <div id="status"></div>
         </div>
 
