@@ -854,6 +854,8 @@
             </div>
           </div>
 
+          <div class="mp4advice" id="origNote"></div>
+
           <div class="mp4advice" id="mp4advice"></div>
 
           <button class="btn" id="download" style="margin-top:16px;">&#8681; Download compressed GIF</button>
@@ -1320,8 +1322,28 @@
       // or can't fit at all. All three targets (X, Farcaster, Discord) accept video.
       updateMp4Advice(fits, opts, bailed);
 
+      // Original-file guidance: if the source already fits, or if the re-encode came out
+      // larger, let the user know they may not need this output.
+      updateOrigNote(size);
+
       $('results').classList.add('show');
       setStatus('');
+    }
+
+    function updateOrigNote(size) {
+      const el = $('origNote');
+      const origFits = current.size <= selectedTarget.cap;
+      const bigger = size > current.size;
+      let msg = '';
+      if (bigger) {
+        // Neutral framing: a larger re-encode isn't necessarily wrong — a clean re-encode
+        // can fix a GIF a platform rejected for encoding quirks.
+        msg = `This re-encode is <b>larger</b> than your original (${fmtBytes(current.size)} → ${fmtBytes(size)}). If the original posts fine, use it. If a platform rejected the original, this clean re-encode may upload where the original wouldn't.`;
+      } else if (origFits) {
+        msg = `Your original already fits ${selectedTarget.name} (${fmtBytes(current.size)}) — you can post it as-is. Compress only if you want a smaller file.`;
+      }
+      if (msg) { el.innerHTML = msg; el.classList.add('show'); }
+      else { el.classList.remove('show'); el.innerHTML = ''; }
     }
 
     function updateMp4Advice(fits, opts, bailed) {
