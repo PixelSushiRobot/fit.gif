@@ -1272,10 +1272,11 @@
         // always keep the smallest-so-far as best-effort fallback
         if (!outData || data.length < outSize) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; }
         if (data.length <= cap) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; break; }
-        // early bail: we've reached a destructive rung and STILL don't fit. No point
-        // grinding through the remaining (even more destructive) rungs — stop and
-        // recommend MP4 instead of making the user wait for a muddy result.
-        if (scale <= 0.5 || colors <= 32) { bailed = true; break; }
+        // early bail: only when we've reached a genuinely destructive rung and STILL
+        // don't fit. Pixel art resizes on clean ratios (0.5, 0.33) as normal strategy,
+        // so a small scale alone isn't "destructive" — require heavy resize AND a low
+        // palette together (or frame-dropping, which is always last-resort here).
+        if ((scale <= 0.4 && colors <= 32) || frameStep > 1) { bailed = true; break; }
       }
       progressDone();
       // reflect chosen settings in UI
