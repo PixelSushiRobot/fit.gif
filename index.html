@@ -1259,10 +1259,19 @@
       $('run').disabled = true; $('autofit').disabled = true;
       const cap = Math.floor(selectedTarget.cap * (selectedTarget.buffer ?? 0.97)); // safety buffer so uploads aren't rejected at the edge
       const ladder = artMode === 'pixel' ? LADDER_PIXEL : LADDER_ILLUSTRATION;
+      // Display-size pre-cap: no social platform shows a GIF above ~1200px on its longest
+      // side (X recommends ≤1200). If the source is bigger, fold a downscale into the
+      // ladder's baseline so we shrink oversized dimensions FIRST — free savings with no
+      // visible quality loss — instead of destroying the palette while clinging to a huge
+      // canvas. Pixel art keeps whole-ratio scaling, so it opts out of the pre-cap.
+      const longest = Math.max(current.decoded.width, current.decoded.height);
+      const DISPLAY_MAX = 1200;
+      const baseScale = (artMode !== 'pixel' && longest > DISPLAY_MAX) ? DISPLAY_MAX / longest : 1;
       progressStart(false);
       let chosen = null, outSize = 0, outData = null, bailed = false;
       for (let i = 0; i < ladder.length; i++) {
-        const [scale, colors, frameStep] = ladder[i];
+        const [rungScale, colors, frameStep] = ladder[i];
+        const scale = rungScale * baseScale;
         setStatus(`Auto-fitting… try ${i + 1}/${ladder.length} (scale ${Math.round(scale * 100)}%, ${colors} colors)`);
         progressSet((i + 1) / ladder.length);
         await new Promise(r => setTimeout(r, 10));
@@ -1276,7 +1285,10 @@
         // don't fit. Pixel art resizes on clean ratios (0.5, 0.33) as normal strategy,
         // so a small scale alone isn't "destructive" — require heavy resize AND a low
         // palette together (or frame-dropping, which is always last-resort here).
-        if ((scale <= 0.4 && colors <= 32) || frameStep > 1) { bailed = true; break; }
+        // Measure destructiveness by the ladder's own rung (rungScale), not the
+        // display-capped effective scale — otherwise a big source (small baseScale)
+        // would look "destructive" from the very first rung.
+        if ((rungScale <= 0.4 && colors <= 32) || frameStep > 1) { bailed = true; break; }
       }
       progressDone();
       // reflect chosen settings in UI
