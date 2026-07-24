@@ -1329,6 +1329,14 @@
 
       $('results').classList.add('show');
       setStatus('');
+
+      // Auto-scroll the result into view, but only if it isn't already visible — so
+      // re-compressing while looking at the result doesn't yank the page.
+      requestAnimationFrame(() => {
+        const r = $('results').getBoundingClientRect();
+        const onScreen = r.top >= 0 && r.top < window.innerHeight * 0.85;
+        if (!onScreen) $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
 
     function updateOrigNote(size) {
