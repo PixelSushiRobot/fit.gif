@@ -1,50 +1,45 @@
 # fit.gif
 
-Compress animated GIFs to fit social network upload limits — right in your browser. No uploads, no watermark, no server.
+**Shrink animated GIFs to fit social upload caps — right in your browser.**
 
-**[Try it live →](https://pixelsushirobot.github.io/fit.gif/)**
+fit.gif compresses GIF loops down to the size limits of X/Twitter (15MB), Farcaster (10MB), and Discord (10MB), so your art posts as a real GIF instead of a video. It's tuned for illustration and pixel art loops, and it runs entirely on your device.
 
-Built for **X/Twitter**, **Farcaster**, and **Discord**, and tuned for 2D illustration and pixel art loops.
+**→ [Try it live](https://pixelsushirobot.github.io/fit.gif/)** — no install, nothing to upload.
 
 ## Why
 
-Social platforms cap GIF uploads (X at 15 MB, Farcaster at 10 MB, Discord at 10 MB on the free tier), and a short high-frame-rate loop can blow past those in seconds. Most compressors fix this by uploading your file to their servers. fit.gif does everything locally — your GIF never leaves your device.
+Posting GIF art often means converting it to MP4 just to clear an upload limit — losing the true-loop, autoplay, hotlinkable qualities that make a GIF a GIF. fit.gif keeps it a GIF and gets it under the cap.
 
 ## Features
 
-- **Platform targets** — pick X, Farcaster, or Discord and see the exact cap you're fitting under, with a built-in safety buffer so uploads aren't rejected at the edge.
-- **Auto-fit** — one click walks a settings ladder and stops at the first combination that lands under the selected cap, with a progress bar so you can see it working.
-- **Art-aware auto-fit** — the ladder adapts to your content: illustration favors palette cuts and flexible resizing; pixel art resizes only on whole-number ratios (½, ⅓, ¼) to keep the grid crisp and preserves the full palette (since detailed and dithered work relies on it). Frame-dropping is always a last resort so smooth loops stay smooth.
-- **Art-type detection** — automatically recognizes pixel art vs. illustration on upload (via pixel-grid, palette, and dithering analysis) and tailors the on-screen guidance to match.
-- **Three compression levers** — palette reduction (8–256 colors), frame-dropping (keep-all through 1-in-4), and resize (20–100%).
-- **Pixel-art mode** — crisp nearest-neighbor resizing that keeps pixels sharp; illustration mode uses smooth downscaling. Neither dithers, keeping flat color areas clean.
-- **Pass/fail verdict** — shows whether the result fits, a size-vs-cap bar, and a before/after preview.
-- **Light / dark / system themes** — monochrome, follows your OS by default.
+- **One-click auto-fit** — pick a platform and it finds the largest settings that stay under the limit.
+- **Art-type detection** — recognizes pixel art vs. illustration and adjusts its strategy (no dithering, palette-preserving resizes for pixel art).
+- **Full manual control** — scale, color count, and frame step if you want to dial it in yourself.
+- **Runs locally** — pure client-side JavaScript, no dependencies, no build step, no server.
 
 ## How it works
 
-Everything runs client-side in vanilla JavaScript:
+1. Decodes the GIF in-browser (frames, palette, timing, transparency).
+2. Applies your chosen transforms — resize, palette quantization, frame reduction.
+3. Re-encodes a valid, looping GIF you can download.
 
-1. Decodes the GIF (GIF87a/89a, LZW, handling interlacing and frame disposal).
-2. Resizes and requantizes each frame to a shared color palette (median-cut).
-3. Re-encodes to a valid looping GIF, preserving playback speed even when frames are dropped.
-
-No dependencies, no build step, no network calls.
+Auto-fit walks a ladder of settings from least to most destructive, stopping at the first result that fits — resizing before dropping colors, and dropping frames only as a last resort.
 
 ## Usage
 
-Open the [live page](https://pixelsushirobot.github.io/fit.gif/), drop in a GIF, pick a target, and either adjust the sliders or hit **Auto-fit**. Download the result when it fits.
-
-Or run it locally — download `index.html` and open it in any browser. It's a single self-contained file.
+1. Drop in a GIF.
+2. Choose a target platform, or set scale / colors / frames manually.
+3. Download the compressed result.
 
 ## Privacy
 
-Your GIF is never uploaded. All processing happens in your browser's memory. The only thing the host serves is the page itself.
+> [!NOTE]
+> Your GIF never leaves your device. All processing happens in the browser — nothing is uploaded to any server. You can also download `index.html` and run it fully offline.
 
 ## Limitations
 
-- Uses a from-scratch decoder/encoder, so very large or high-frame-rate GIFs (e.g. 1080p at 100+ frames) can take 20–40 seconds and use significant memory.
-- GIF's 256-color palette is inherently less efficient than video. If your destination accepts MP4 (X and Farcaster do), an MP4 export of the same clip will usually be smaller at the same quality.
+- Very large or long GIFs may need heavy compression to fit — quality trade-offs are unavoidable at extreme sizes.
+- Optimized for illustration and pixel art loops; photographic GIFs will work but aren't the focus.
 
 ## License
 

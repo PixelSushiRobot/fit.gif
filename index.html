@@ -717,7 +717,7 @@
       <div class="head-l">
         <!-- <p class="kicker">a psr tool</p> -->
         <h1>fit.gif</h1>
-        <p class="sub">Squeeze animated GIFs under X, Farcaster, and Discord upload caps. Made for 2D illustration and
+        <p class="sub">Squeeze animated GIFs under X, Farcaster, and Discord upload caps. Made for illustration and
           pixel art loops. </p>
       </div>
       <div class="head-r">
@@ -790,8 +790,7 @@
               <button class="seg-btn on" data-mode="illustration">Illustration (smooth)</button>
               <button class="seg-btn" data-mode="pixel">Pixel art (crisp)</button>
             </div>
-            <div class="hint" id="artHint">Smooth downscaling for 2D illustration &amp; cel art. Nearest-color palette,
-              no dither.</div>
+            <div class="hint" id="artHint">Smooth downscaling for illustration art. Nearest-color palette, no dither — dithering adds noise that hurts illustration.</div>
           </div>
 
           <div class="ctrl">
@@ -950,7 +949,7 @@
     // shouldn't have its already-tiny palette over-reduced.
     const ART_HINTS = {
       illustration: {
-        art: 'Smooth downscaling for 2D illustration & cel art. Nearest-color palette, no dither.',
+        art: 'Smooth downscaling for illustration art. Nearest-color palette, no dither — dithering adds noise that hurts illustration.',
         scale: 'On flat art, cut colors first — resize is the fallback for tight caps.',
         colors: 'Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.'
       },
