@@ -12,8 +12,10 @@ Posting GIF art often means converting it to MP4 just to clear an upload limit �
 
 ## Features
 
-- **One-click auto-fit** — pick a platform and it finds the largest settings that stay under the limit.
-- **Art-type detection** — recognizes pixel art vs. illustration and adjusts its strategy (no dithering, palette-preserving resizes for pixel art).
+- **One-click auto-fit** — pick a target and it finds the largest settings that stay under the limit.
+- **Custom size target** — set your own cap in MB for email, embeds, or any platform not listed.
+- **Art-type detection** — recognizes pixel art vs. illustration and adapts: crisp integer-ratio resizes for pixel art, smooth downscaling for illustration, no dithering either way.
+- **Color-design aware** — auto-fit protects your palette based on how many colors the source actually uses, so a rich illustration never gets crushed to a few colors when a gentle resize would do.
 - **Full manual control** — scale, color count, and frame step if you want to dial it in yourself.
 - **Runs locally** — pure client-side JavaScript, no dependencies, no build step, no server.
 
@@ -23,12 +25,12 @@ Posting GIF art often means converting it to MP4 just to clear an upload limit �
 2. Applies your chosen transforms — resize, palette quantization, frame reduction.
 3. Re-encodes a valid, looping GIF you can download.
 
-Auto-fit walks a ladder of settings from least to most destructive, stopping at the first result that fits — resizing before dropping colors, and dropping frames only as a last resort.
+Auto-fit doesn't just cut until something fits. It steps resolution and palette down together toward a balanced result, keeps color reduction proportional to the source (256→64 is a real drop; 96→64 is nothing), and drops frames only as a last resort since that breaks the loop cadence. Once it finds a fit, it refines the scale upward to use the headroom under the cap — landing close to the limit with a comfortable margin, not far below it.
 
 ## Usage
 
 1. Drop in a GIF.
-2. Choose a target platform, or set scale / colors / frames manually.
+2. Pick a target platform or set a custom MB cap — or set scale / colors / frames manually.
 3. Download the compressed result.
 
 ## Privacy

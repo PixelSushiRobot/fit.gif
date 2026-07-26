@@ -309,6 +309,11 @@
 
     .tgt .c {
       font-size: 11px;
+      /* Pin the line box so preset and custom chips share identical height. Text-only
+         flex items collapse to the font's natural line box (~15px), but the custom chip's
+         wrapped span/input resolved to a taller box; an explicit line-height makes both
+         resolve the same, so 3px 9px padding is the only height contributor. */
+      line-height: 15px;
       color: inherit;
       opacity: 0.7;
       background: transparent;
@@ -318,7 +323,79 @@
       white-space: nowrap;
     }
 
-    /* sliders */
+    /* Custom target: a role="button" div that looks like the preset pills. */
+    div.tgt {
+      cursor: pointer;
+    }
+
+    /* The chip does double duty: static "N MB" when the pill is unselected, and an inline
+       editable MB field when selected. Both live in markup; CSS shows one at a time.
+       Keep everything plain INLINE (not flex): the preset .c is inline text whose height is
+       the 11px line-box (measured 21px incl. 3px 9px padding). An inline-flex container
+       instead sized to the flex line height, rendering ~3.5px taller. Inline text + an
+       inline baseline-aligned input reproduces the preset's box exactly. */
+    .custom-chip {
+      display: inline;
+    }
+
+    .custom-chip .chip-edit {
+      display: none;
+    }
+
+    .tgt.on .custom-chip .chip-static {
+      display: none;
+    }
+
+    .tgt.on .custom-chip .chip-edit {
+      display: inline;
+    }
+
+    .custom-chip .chip-edit input {
+      width: 1ch;
+      box-sizing: content-box;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      /* Explicit monospace stack: number inputs don't reliably inherit font-family via
+         `font: inherit`, which made "123" render in a different face than the preset chips. */
+      font-family: 'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: inherit;
+      line-height: 15px;
+      height: 15px;
+      text-align: right;
+      appearance: textfield;
+      -moz-appearance: textfield;
+      vertical-align: baseline;
+    }
+
+    .custom-chip .chip-edit input:focus {
+      outline: none;
+    }
+
+    /* Auto select-all on focus otherwise paints the browser's blue highlight box behind
+       the number, which clashes with the monochrome chip. Use a subtle theme-tinted
+       selection instead so it reads as "editable", not a raw form field. */
+    .custom-chip .chip-edit input::selection {
+      background: color-mix(in srgb, currentColor 22%, transparent);
+      color: inherit;
+    }
+
+    .custom-chip .chip-edit input::-webkit-outer-spin-button,
+    .custom-chip .chip-edit input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .custom-chip .chip-edit .unit {
+      font-size: 11px;
+      line-height: inherit;
+      /* one full monospace character = the real space width in the static "10 MB" chip */
+      margin-left: 1ch;
+    }
+
     .ctrl {
       margin: 16px 0;
     }
@@ -877,7 +954,12 @@
       { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts GIFs up to 15 MB on web (5 MB on the mobile app). Over the cap, X auto-converts to video.' },
       { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, note: 'Farcaster supports animated GIF up to 10 MB. It favors a 3:2 card — a 1:1 loop still works, just not full-bleed.' },
       { id: 'discord', name: 'Discord', cap: 10 * MB, buffer: 0.95, note: 'Discord free-tier upload cap is 10 MB (50 MB Nitro Basic, 500 MB full Nitro).' },
+      // Custom target: user sets its own cap (MB). buffer 1.0 honors the number literally —
+      // they typed an exact ceiling, so we don't shave a safety margin off it like the
+      // platform presets do. cap is mutable; updated by the MB input below.
+      { id: 'custom', name: 'Custom', cap: 8 * MB, buffer: 1.0, custom: true, note: 'Set your own size limit in MB — for email attachments, embeds, or any platform not listed.' },
     ];
+    const CUSTOM_MIN_MB = 0.1, CUSTOM_MAX_MB = 500; // clamp against nonsense input
 
     let current = null;      // { name, blob, arrayBuffer, decoded }
     let selectedTarget = TARGETS[0];
@@ -885,11 +967,19 @@
     let artMode = 'illustration'; // 'illustration' (smooth) | 'pixel' (crisp)
 
     const $ = id => document.getElementById(id);
+    // Trim trailing zeros: 15.0 -> "15", 2.50 -> "2.5", 2.53 -> "2.53". Keeps chips clean
+    // and consistent — decimals appear only when the value actually has a fraction.
+    function trimNum(n, maxDp) {
+      return parseFloat(n.toFixed(maxDp)).toString();
+    }
     function fmtBytes(b) {
-      if (b >= MB) return (b / MB).toFixed(b >= 10 * MB ? 1 : 2) + ' MB';
-      if (b >= KB) return (b / KB).toFixed(0) + ' KB';
+      if (b >= MB) return trimNum(b / MB, b >= 10 * MB ? 1 : 2) + ' MB';
+      if (b >= KB) return Math.round(b / KB) + ' KB';
       return b + ' B';
     }
+    // MB value for the custom input — same trimming, so the field reads "12" / "2.5",
+    // matching the static chip beside it instead of a raw "12" vs chip "12.0".
+    const fmtMB = mb => trimNum(mb, 2);
 
     // ---------- Theme (light / dark / system, default system) ----------
     (function initTheme() {
@@ -915,20 +1005,91 @@
 
     // ---------- Build target buttons ----------
     const tgtWrap = $('targets');
+    // Restore the last custom cap (MB) so it persists across visits, same pattern as theme.
+    (function initCustomCap() {
+      let saved = null;
+      try { saved = parseFloat(localStorage.getItem('gifcompress-customMB')); } catch (e) { }
+      if (saved && isFinite(saved)) {
+        const clamped = Math.min(CUSTOM_MAX_MB, Math.max(CUSTOM_MIN_MB, saved));
+        TARGETS.find(t => t.custom).cap = clamped * MB;
+      }
+    })();
+
     TARGETS.forEach((t, i) => {
-      const el = document.createElement('button');
+      // Presets are real <button>s. The Custom target is a role="button" <div> so an
+      // editable <input> can live legitimately inside its chip (an <input> nested in a
+      // real <button> is invalid and swallows focus/selection).
+      const el = document.createElement(t.custom ? 'div' : 'button');
       el.className = 'tgt' + (i === 0 ? ' on' : '');
-      el.innerHTML = `<span class="n">${t.name}</span><span class="c">${fmtBytes(t.cap)}</span>`;
-      el.onclick = () => {
+      el.dataset.tid = t.id;
+      if (t.custom) {
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        // Chip holds a static label (unselected) OR an inline MB field (selected). Both
+        // exist in markup; CSS shows one at a time based on the parent's .on state.
+        el.innerHTML = `<span class="n">${t.name}</span>` +
+          `<span class="c custom-chip">` +
+            `<span class="chip-static">${fmtBytes(t.cap)}</span>` +
+            `<span class="chip-edit"><input type="number" id="customMB" inputmode="decimal" aria-label="Custom size limit in megabytes"><span class="unit">MB</span></span>` +
+          `</span>`;
+      } else {
+        el.innerHTML = `<span class="n">${t.name}</span><span class="c">${fmtBytes(t.cap)}</span>`;
+      }
+      const select = () => {
         selectedTarget = t;
         document.querySelectorAll('.tgt').forEach(x => x.classList.remove('on'));
         el.classList.add('on');
         $('tgtnote').textContent = t.note;
+        if (t.custom) {
+          const inp = $('customMB');
+          // focus + select-all so the user can just start typing the number
+          requestAnimationFrame(() => { inp.focus(); inp.select(); });
+        }
         if (current) evaluateExisting();
       };
+      el.onclick = select;
+      if (t.custom) {
+        // keyboard activation for the div-button; Enter/Space select it
+        el.addEventListener('keydown', e => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); select(); }
+        });
+      }
       tgtWrap.appendChild(el);
     });
     $('tgtnote').textContent = TARGETS[0].note;
+
+    // ---------- Custom cap input (MB only, clamped) — inline in the pill's chip ----------
+    (function initCustomInput() {
+      const customT = TARGETS.find(t => t.custom);
+      const input = $('customMB');
+      const staticLabel = document.querySelector('.tgt[data-tid="custom"] .chip-static');
+      // Grow the field to hug its content so a short value ("8") doesn't leave dead space
+      // to the left of the right-aligned text. The whole UI is monospace, so 1ch ≈ one
+      // digit — width = character count is accurate with no measuring hack.
+      const sizeInput = () => { input.style.width = Math.max(1, input.value.length) + 'ch'; };
+      input.value = fmtMB(customT.cap / MB);
+      input.min = CUSTOM_MIN_MB; input.max = CUSTOM_MAX_MB; input.step = 0.5;
+      sizeInput();
+      // Clicks/keys inside the field must not bubble to the div-button's select handler
+      // (which would re-focus/select-all and fight typing).
+      ['click', 'keydown', 'pointerdown'].forEach(ev =>
+        input.addEventListener(ev, e => e.stopPropagation()));
+      const apply = (persist) => {
+        let mb = parseFloat(input.value);
+        if (!isFinite(mb)) mb = customT.cap / MB;                 // ignore garbage, keep last good
+        mb = Math.min(CUSTOM_MAX_MB, Math.max(CUSTOM_MIN_MB, mb)); // clamp to sane range
+        customT.cap = mb * MB;
+        staticLabel.textContent = fmtBytes(customT.cap);          // keep the unselected label in sync
+        if (persist) {
+          input.value = fmtMB(mb);                                // reflect the clamped value back
+          try { localStorage.setItem('gifcompress-customMB', mb); } catch (e) { }
+        }
+        sizeInput();                                              // refit width to current text
+        if (current && selectedTarget.custom) evaluateExisting();
+      };
+      input.oninput = () => apply(false);   // live update while typing
+      input.onchange = () => apply(true);   // clamp + persist on commit (blur/enter)
+    })();
 
     // ---------- Sliders ----------
     $('scale').oninput = e => $('scaleV').textContent = e.target.value + '%';
@@ -1128,22 +1289,22 @@
 
       // Pixel art, case A — strong upscale grid.
       if (grid.confidence >= 0.45 && grid.period >= 2) {
-        return { type: 'pixel', label: 'pixel art', reason: `color changes align to a ~${grid.period}px grid` };
+        return { type: 'pixel', label: 'pixel art', uniqueColors, reason: `color changes align to a ~${grid.period}px grid` };
       }
       // Pixel art, case B — small palette AND a detected grid period >= 2 (even at low
       // grid confidence).
       if (uniqueColors <= 256 && grid.period >= 2 && grid.confidence >= 0.12) {
-        return { type: 'pixel', label: 'pixel art', reason: `limited palette on a ~${grid.period}px grid` };
+        return { type: 'pixel', label: 'pixel art', uniqueColors, reason: `limited palette on a ~${grid.period}px grid` };
       }
       // Pixel art, case C — dithered, or small palette with genuinely hard edges.
       if (isDithered || (uniqueColors <= 128 && softRatio < 0.35 && hard > 30)) {
         return {
-          type: 'pixel', label: 'pixel art',
+          type: 'pixel', label: 'pixel art', uniqueColors,
           reason: isDithered ? 'pixel dithering detected' : 'small palette with hard, aliased edges'
         };
       }
       // Everything else is illustration (the tool's default focus).
-      return { type: 'illustration', label: 'illustration', reason: 'clean edges, no pixel grid' };
+      return { type: 'illustration', label: 'illustration', uniqueColors, reason: 'clean edges, no pixel grid' };
     }
 
     // Find the dominant spacing between color-change edges. Real pixel art snaps to a
@@ -1231,14 +1392,28 @@
     }
 
     // ---------- Auto-fit ladders ----------
-    // Illustration: fractional scales are fine (smooth downscaling), palette can go low,
-    // frame-drop is last resort.
+    // Illustration priority (per the artist's intent): PRESERVE COLOR DESIGN and FRAME RATE.
+    // But the balance is a BLEND — rather than maxing one lever (e.g. resize to 60% while
+    // clinging to 128 colors), step resolution AND palette down together so we reach a
+    // "medium everything" result. For a Twitter-tight target this should land around
+    // ~80-85% @ 64-96 colors, not 60% @ 128. Frame-drop stays the last resort (it breaks
+    // loop cadence). The source-relative floor below removes rungs that would cut the palette
+    // too far BELOW WHAT THE SOURCE STARTED WITH — a 256-color source shouldn't drop to 32,
+    // but a 96-color source cutting to 64 is barely visible. Each rung: [scale, colors, frameStep].
     const LADDER_ILLUSTRATION = [
-      [1.0, 256, 1], [1.0, 128, 1], [1.0, 96, 1], [1.0, 64, 1], [1.0, 48, 1],
-      [1.0, 32, 1], [0.85, 48, 1], [0.85, 32, 1], [0.7, 48, 1], [0.7, 32, 1],
-      [0.6, 32, 1], [0.5, 48, 1], [0.5, 32, 1], [0.4, 32, 1], [0.4, 24, 1],
-      [0.3, 24, 1], [0.25, 16, 1],
-      [0.5, 32, 2], [0.4, 32, 2], [0.3, 24, 3]
+      // Phase 1 — tiny, nearly-invisible steps at full palette (slightly-tight targets).
+      [1.0, 256, 1], [0.95, 256, 1], [0.9, 256, 1],
+      // Phase 2 — BLEND: ease resolution and palette down together. This is the zone most
+      // Twitter-tight fits should land in — balanced, neither lever maxed.
+      [0.9, 192, 1], [0.85, 192, 1], [0.85, 128, 1], [0.8, 128, 1],
+      [0.8, 96, 1], [0.75, 96, 1], [0.8, 64, 1], [0.75, 64, 1],
+      // Phase 3 — deeper on both, still balanced.
+      [0.7, 96, 1], [0.7, 64, 1], [0.6, 96, 1], [0.6, 64, 1], [0.6, 48, 1],
+      [0.5, 64, 1], [0.5, 48, 1],
+      // Phase 4 — deep color cuts. Filtered out unless the source palette is already small.
+      [0.5, 32, 1], [0.4, 48, 1], [0.4, 32, 1], [0.3, 32, 1], [0.25, 24, 1],
+      // Phase 5 — frame-drop, absolute last resort.
+      [0.6, 96, 2], [0.5, 64, 2], [0.4, 48, 3]
     ];
     // Pixel art: resize on whole-number ratios only (1, 1/2, 1/3, 1/4) so the grid stays
     // crisp, and preserve the palette as long as possible before cutting colors — detailed
@@ -1252,12 +1427,27 @@
       [0.5, 64, 2], [0.3333, 48, 2]
     ];
 
+    // Build the working ladder for this source. The color floor is RELATIVE to the source's
+    // own palette, because how much a color cut hurts depends on where it started: 256→64 is
+    // an acceptable balanced landing, 256→32 is destructive, and 96→64 is barely visible. We
+    // set the floor low enough that 64 colors stays reachable for a rich source (a good
+    // balance point) but block the truly destructive 32/24 rungs. An already-modest source
+    // floors lower still, so it can keep shrinking. Rungs below the floor are dropped.
+    function ladderFor(artMode, detected) {
+      if (artMode === 'pixel') return LADDER_PIXEL;
+      const src = detected && detected.uniqueColors ? detected.uniqueColors : 256;
+      // ~a quarter of the source palette, clamped to a 24-64 band. Rich 256-ish source → 64;
+      // mid ~128 source → ~32; small source → 24 (deep cuts are harmless when it started low).
+      const floor = Math.min(64, Math.max(24, Math.round(src / 4)));
+      return LADDER_ILLUSTRATION.filter(([, colors]) => colors >= floor);
+    }
+
     // ---------- Auto-fit: search settings until under cap ----------
     $('autofit').onclick = async () => {
       if (!current) return;
       $('run').disabled = true; $('autofit').disabled = true;
       const cap = Math.floor(selectedTarget.cap * (selectedTarget.buffer ?? 0.97)); // safety buffer so uploads aren't rejected at the edge
-      const ladder = artMode === 'pixel' ? LADDER_PIXEL : LADDER_ILLUSTRATION;
+      const ladder = ladderFor(artMode, current.detected);
       // Display-size pre-cap: no social platform shows a GIF above ~1200px on its longest
       // side (X recommends ≤1200). If the source is bigger, fold a downscale into the
       // ladder's baseline so we shrink oversized dimensions FIRST — free savings with no
@@ -1282,6 +1472,10 @@
       }
       progressStart(false);
       let chosen = null, outSize = 0, outData = null, bailed = false;
+      // Track the last over-cap attempt so a refinement pass can search the headroom between
+      // it and the fitting rung. We only refine on scale, so remember the scale + whether it
+      // shared the fitting rung's color count.
+      let prevOver = null; // { scale, colors, frameStep }
       for (let i = 0; i < ladder.length; i++) {
         const [rungScale, colors, frameStep] = ladder[i];
         const scale = rungScale * baseScale;
@@ -1294,15 +1488,52 @@
         // always keep the smallest-so-far as best-effort fallback
         if (!outData || data.length < outSize) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; }
         if (data.length <= cap) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; break; }
-        // early bail: only when we've reached a genuinely destructive rung and STILL
-        // don't fit. Pixel art resizes on clean ratios (0.5, 0.33) as normal strategy,
-        // so a small scale alone isn't "destructive" — require heavy resize AND a low
-        // palette together (or frame-dropping, which is always last-resort here).
-        // Measure destructiveness by the ladder's own rung (rungScale), not the
-        // display-capped effective scale — otherwise a big source (small baseScale)
-        // would look "destructive" from the very first rung.
-        if ((rungScale <= 0.4 && colors <= 32) || frameStep > 1) { bailed = true; break; }
+        prevOver = { scale, colors, frameStep, size: data.length };
+        // Early bail: stop when we've reached a genuinely destructive rung and STILL don't
+        // fit — better to send the user to MP4 than hand them a wrecked GIF. "Destructive"
+        // for illustration means heavy resize combined with a cut palette, OR any frame-drop
+        // (which breaks the loop cadence and is always last resort). For a color-rich source
+        // the deep-color rungs are filtered out, so bail then hinges on heavy resize / frame
+        // drop. Pixel art resizes on clean ratios as normal strategy, so judge by the
+        // ladder's own rung (rungScale), not the display-capped effective scale.
+        const destructiveResize = artMode === 'pixel' ? false : (rungScale <= 0.3);
+        if ((rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || frameStep > 1) { bailed = true; break; }
       }
+
+      // ---------- Refinement pass: use the headroom ----------
+      // The ladder is discrete, so the first fitting rung often lands well under the cap
+      // (e.g. 11MB against a 14.5MB cap). If we fit via RESIZE (not frame-drop) and the
+      // previous rung — same color count — was over cap, binary-search the scale between them
+      // to push closer to the cap while KEEPING a comfortable margin (aim ~85% of the
+      // effective cap, never above it) so a platform's own re-encode won't tip it over.
+      if (!bailed && chosen && chosen.frameStep === 1 && prevOver &&
+          prevOver.colors === chosen.colors && prevOver.frameStep === 1 &&
+          prevOver.scale > chosen.scale && outSize < cap * 0.9) {
+        const targetLo = cap * 0.82, targetHi = cap; // acceptable band: land in here, prefer high
+        let lo = chosen.scale;      // known-good (fits)
+        let hi = prevOver.scale;    // known-too-big
+        let bestScale = chosen.scale, bestSize = outSize, bestData = outData;
+        for (let iter = 0; iter < 5; iter++) {           // 5 passes ≈ within ~1.5% of ideal
+          const mid = (lo + hi) / 2;
+          setStatus(`Refining… ${Math.round(mid * 100)}% to use available space`);
+          progressSet(0.5);
+          await new Promise(r => setTimeout(r, 10));
+          let data;
+          try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameStep: 1, smooth: artMode !== 'pixel' }); }
+          catch (err) { break; }
+          if (data.length <= cap) {
+            // fits — accept as new best, try larger to fill more headroom
+            bestScale = mid; bestSize = data.length; bestData = data;
+            lo = mid;
+            if (data.length >= targetLo) break; // already comfortably in the band; stop early
+          } else {
+            hi = mid; // too big, pull back
+          }
+        }
+        chosen = { scale: bestScale, colors: chosen.colors, frameStep: 1 };
+        outSize = bestSize; outData = bestData;
+      }
+
       progressDone();
       // reflect chosen settings in UI
       $('scale').value = Math.round(chosen.scale * 100); $('scaleV').textContent = Math.round(chosen.scale * 100) + '%';
