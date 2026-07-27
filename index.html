@@ -1148,7 +1148,7 @@
       const buf = await file.arrayBuffer();
       let decoded;
       try { decoded = decodeGIF(new Uint8Array(buf)); }
-      catch (err) { setStatus('Could not decode this GIF: ' + err.message, true); return; }
+      catch (err) { setStatus("Couldn't read this GIF: " + err.message, true); return; }
 
       current = { name: file.name, size: file.size, buf, decoded };
       lastOutputBlob = null;
@@ -1182,7 +1182,7 @@
       // large-file guardrail: many-frame, high-res GIFs are slow in a from-scratch decoder
       const px = decoded.width * decoded.height * decoded.frames.length;
       if (px > 120e6) {
-        setStatus(`Heads up: ${decoded.frames.length} frames at ${decoded.width}×${decoded.height} is large — compression may take 20-40s and use significant memory.`);
+        setStatus(`Large GIF: ${decoded.frames.length} frames at ${decoded.width}×${decoded.height} — compression may take 20-40s and use significant memory.`);
       } else {
         evaluateExisting();
       }
@@ -1371,13 +1371,13 @@
     async function compress(opts) {
       if (!current) return;
       $('run').disabled = true; $('autofit').disabled = true;
-      setStatus('Compressing… frame ' + '0/' + current.decoded.frames.length);
+      setStatus('Compressing… 0/' + current.decoded.frames.length + ' frames');
       progressStart(false);
       await new Promise(r => setTimeout(r, 20));
       let out;
       try {
         out = await buildGIF(current.decoded, opts, (i, n) => {
-          setStatus(`Compressing… frame ${i}/${n}`);
+          setStatus(`Compressing… ${i}/${n} frames`);
           progressSet(i / n);
         });
       } catch (err) {
@@ -1475,29 +1475,127 @@
       // Track the last over-cap attempt so a refinement pass can search the headroom between
       // it and the fitting rung. We only refine on scale, so remember the scale + whether it
       // shared the fitting rung's color count.
-      let prevOver = null; // { scale, colors, frameStep }
-      for (let i = 0; i < ladder.length; i++) {
+      let prevOver = null; // { scale, colors, frameStep, size }
+
+      // ---------- Adaptive interpolation search over the ladder ----------
+      // File size is (near-)monotonic down the ladder, so instead of crawling one rung at a
+      // time we LEARN the rate from measured rungs and take BIG jumps while far over the cap,
+      // shrinking to single steps as we approach — then a cheap backward-confirm guarantees we
+      // didn't skip a higher-quality rung that also fits. Easy sources (already near cap) never
+      // trigger a jump and behave exactly like the old linear walk.
+      const encoded = new Map();  // index -> { size, data, scale, colors, frameStep } (memoized)
+      const isDestructive = (rungScale, colors, frameStep) => {
+        const destructiveResize = artMode === 'pixel' ? false : (rungScale <= 0.3);
+        return (rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || frameStep > 1;
+      };
+      // Consistent search-status line. Shows the measured filesize alongside the settings so
+      // the user watches the number march toward the cap — reassures them progress is real
+      // and explains why scale/colors shift as it homes in. `label` is the phase verb.
+      const searchStatus = (label, scale, colors, size) => {
+        const bits = [`${Math.round(scale * 100)}%`, `${colors} colors`];
+        if (size != null) bits.unshift(fmtBytes(size));
+        setStatus(`${label}… ${bits.join(' · ')}`);
+      };
+      // "Best size so far" shown in the status — chosen to only ever move TOWARD the goal,
+      // so the number never appears to regress even though raw per-rung sizes aren't
+      // monotonic (a ⚡⚡ overshoot + backward-confirm re-encodes bigger rungs; a palette cut
+      // can occasionally encode larger). Rule: while nothing fits yet, track the SMALLEST
+      // seen (marching down toward the cap). Once something fits, track the LARGEST that
+      // FITS (best quality under cap) and never show an over-cap value again.
+      let bestShownSize = null;   // what the status displays
+      let haveFit = false;        // has any attempt come in <= cap?
+      const noteSize = (size) => {
+        if (size <= cap) {
+          // a fitting result: prefer the largest fitting size (highest quality under cap)
+          if (!haveFit || size > bestShownSize) bestShownSize = size;
+          haveFit = true;
+        } else if (!haveFit) {
+          // still over cap everywhere: show the smallest seen, i.e. closest to the goal
+          if (bestShownSize == null || size < bestShownSize) bestShownSize = size;
+        }
+        // once haveFit is true, over-cap attempts (backward-confirm) don't change the display
+      };
+      const tryRung = async (i, jumping) => {
+        if (encoded.has(i)) return encoded.get(i);
         const [rungScale, colors, frameStep] = ladder[i];
         const scale = rungScale * baseScale;
-        setStatus(`Auto-fitting… try ${i + 1}/${ladder.length} (scale ${Math.round(scale * 100)}%, ${colors} colors)`);
+        // Double-bolt while taking big jumps (far from cap); normal label when stepping.
+        const label = jumping ? '⚡⚡ Turbo Auto-fitting' : 'Auto-fitting';
+        // Hold the best-so-far size while THIS rung encodes, so the number never blanks out.
+        searchStatus(label, scale, colors, bestShownSize);
         progressSet((i + 1) / ladder.length);
         await new Promise(r => setTimeout(r, 10));
         let data;
         try { data = await buildGIF(current.decoded, { scale, colors, frameStep, smooth: artMode !== 'pixel' }); }
-        catch (err) { continue; }
-        // always keep the smallest-so-far as best-effort fallback
-        if (!outData || data.length < outSize) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; }
-        if (data.length <= cap) { chosen = { scale, colors, frameStep }; outSize = data.length; outData = data; break; }
-        prevOver = { scale, colors, frameStep, size: data.length };
-        // Early bail: stop when we've reached a genuinely destructive rung and STILL don't
-        // fit — better to send the user to MP4 than hand them a wrecked GIF. "Destructive"
-        // for illustration means heavy resize combined with a cut palette, OR any frame-drop
-        // (which breaks the loop cadence and is always last resort). For a color-rich source
-        // the deep-color rungs are filtered out, so bail then hinges on heavy resize / frame
-        // drop. Pixel art resizes on clean ratios as normal strategy, so judge by the
-        // ladder's own rung (rungScale), not the display-capped effective scale.
-        const destructiveResize = artMode === 'pixel' ? false : (rungScale <= 0.3);
-        if ((rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || frameStep > 1) { bailed = true; break; }
+        catch (err) { return null; }
+        const rec = { size: data.length, data, scale, colors, frameStep, rungScale, i };
+        encoded.set(i, rec);
+        noteSize(rec.size);                             // update best-so-far (toward goal only)
+        searchStatus(label, scale, colors, bestShownSize);
+        // best-effort fallback: keep the smallest seen so far
+        if (!outData || rec.size < outSize) { chosen = { scale, colors, frameStep }; outSize = rec.size; outData = data; }
+        return rec;
+      };
+
+      // Predict the ladder index that would hit the cap, from the two most recent points, and
+      // damp the jump (go ~⅔ of the way) so an over-smooth early slope can't wildly overshoot.
+      const predictIndex = (a, b, cur) => {
+        if (b.size === a.size) return cur + 1;               // no change → just step
+        const perRung = (a.size - b.size) / (b.i - a.i);     // MB shed per rung (positive)
+        if (perRung <= 0) return cur + 1;                    // non-monotonic here → step safely
+        const need = b.size - cap;                           // how far over we still are
+        const rungsAway = need / perRung;
+        const damped = Math.round(b.i + rungsAway * 0.67);
+        return Math.max(cur + 1, Math.min(ladder.length - 1, damped));
+      };
+
+      // The search. "Far" is measured by size distance to the cap, not rung number.
+      const FAR = cap * 1.3;    // >30% over cap ⇒ still far, allow big jumps
+      let i = 0, fitIndex = -1;
+      let last = null;          // previous measured record (for slope)
+      while (i < ladder.length) {
+        const rec = await tryRung(i, false);
+        if (!rec) { i++; continue; }
+        if (rec.size <= cap) { fitIndex = i; break; }         // found a fit
+        prevOver = { scale: rec.scale, colors: rec.colors, frameStep: rec.frameStep, size: rec.size };
+        if (isDestructive(rec.rungScale, rec.colors, rec.frameStep)) { bailed = true; break; }
+
+        // Decide the next index. Far over + we have a slope ⇒ jump; else single step.
+        let next = i + 1;
+        if (last && rec.size > FAR) {
+          const jumpTo = predictIndex(last, rec, i);
+          if (jumpTo > i + 1) {
+            // take the big jump, marking it visually
+            const jrec = await tryRung(jumpTo, true);
+            if (jrec) {
+              if (jrec.size <= cap) {
+                // Overshot INTO a fit — walk backward to find the FIRST (highest-quality)
+                // rung that still fits, so a jump never costs us quality.
+                let b = jumpTo;
+                while (b - 1 > i) {
+                  const back = await tryRung(b - 1, false);
+                  if (!back) break;
+                  if (back.size <= cap) { b--; } else { prevOver = { scale: back.scale, colors: back.colors, frameStep: back.frameStep, size: back.size }; break; }
+                }
+                fitIndex = b; break;
+              } else {
+                // still over after the jump — continue searching from there
+                prevOver = { scale: jrec.scale, colors: jrec.colors, frameStep: jrec.frameStep, size: jrec.size };
+                if (isDestructive(jrec.rungScale, jrec.colors, jrec.frameStep)) { bailed = true; break; }
+                last = rec; i = jumpTo; continue;
+              }
+            }
+          }
+        }
+        last = rec;
+        i = next;
+      }
+
+      // adopt the chosen fitting rung (if any) as the current best
+      if (fitIndex >= 0) {
+        const rec = encoded.get(fitIndex);
+        chosen = { scale: rec.scale, colors: rec.colors, frameStep: rec.frameStep };
+        outSize = rec.size; outData = rec.data;
       }
 
       // ---------- Refinement pass: use the headroom ----------
@@ -1515,12 +1613,14 @@
         let bestScale = chosen.scale, bestSize = outSize, bestData = outData;
         for (let iter = 0; iter < 5; iter++) {           // 5 passes ≈ within ~1.5% of ideal
           const mid = (lo + hi) / 2;
-          setStatus(`Refining… ${Math.round(mid * 100)}% to use available space`);
+          searchStatus('Refining', mid, chosen.colors, bestShownSize); // hold best-so-far while encoding
           progressSet(0.5);
           await new Promise(r => setTimeout(r, 10));
           let data;
           try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameStep: 1, smooth: artMode !== 'pixel' }); }
           catch (err) { break; }
+          noteSize(data.length);                          // fitting passes grow toward cap (good)
+          searchStatus('Refining', mid, chosen.colors, bestShownSize);
           if (data.length <= cap) {
             // fits — accept as new best, try larger to fill more headroom
             bestScale = mid; bestSize = data.length; bestData = data;
