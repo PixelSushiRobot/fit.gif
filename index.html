@@ -1289,22 +1289,22 @@
 
       // Pixel art, case A — strong upscale grid.
       if (grid.confidence >= 0.45 && grid.period >= 2) {
-        return { type: 'pixel', label: 'pixel art', uniqueColors, reason: `color changes align to a ~${grid.period}px grid` };
+        return { type: 'pixel', label: 'pixel art', uniqueColors, gridPeriod: grid.period, gridConfidence: grid.confidence, reason: `color changes align to a ~${grid.period}px grid` };
       }
       // Pixel art, case B — small palette AND a detected grid period >= 2 (even at low
       // grid confidence).
       if (uniqueColors <= 256 && grid.period >= 2 && grid.confidence >= 0.12) {
-        return { type: 'pixel', label: 'pixel art', uniqueColors, reason: `limited palette on a ~${grid.period}px grid` };
+        return { type: 'pixel', label: 'pixel art', uniqueColors, gridPeriod: grid.period, gridConfidence: grid.confidence, reason: `limited palette on a ~${grid.period}px grid` };
       }
       // Pixel art, case C — dithered, or small palette with genuinely hard edges.
       if (isDithered || (uniqueColors <= 128 && softRatio < 0.35 && hard > 30)) {
         return {
-          type: 'pixel', label: 'pixel art', uniqueColors,
+          type: 'pixel', label: 'pixel art', uniqueColors, gridPeriod: grid.period, gridConfidence: grid.confidence,
           reason: isDithered ? 'pixel dithering detected' : 'small palette with hard, aliased edges'
         };
       }
       // Everything else is illustration (the tool's default focus).
-      return { type: 'illustration', label: 'illustration', uniqueColors, reason: 'clean edges, no pixel grid' };
+      return { type: 'illustration', label: 'illustration', uniqueColors, gridPeriod: grid.period, gridConfidence: grid.confidence, reason: 'clean edges, no pixel grid' };
     }
 
     // Find the dominant spacing between color-change edges. Real pixel art snaps to a
@@ -1415,17 +1415,25 @@
       // Phase 5 — frame-drop, absolute last resort.
       [0.6, 96, 2], [0.5, 64, 2], [0.4, 48, 3]
     ];
-    // Pixel art: resize on whole-number ratios only (1, 1/2, 1/3, 1/4) so the grid stays
-    // crisp, and preserve the palette as long as possible before cutting colors — detailed
-    // dithered pixel art relies on its full color range, so resize beats color reduction.
-    // Frame-drop is last resort.
-    const LADDER_PIXEL = [
+    // Pixel art comes in two subtypes that want OPPOSITE strategies:
+    //
+    // (1) UPSCALED sprite art — drawn small (e.g. 240px) and displayed large via nearest-
+    //     neighbor (e.g. 4×). Its real detail lives on a coarse grid, so scaling DOWN on a
+    //     clean ratio (½, ⅓, ¼) is near-lossless — it just undoes the upscale. Resize first,
+    //     preserve palette. Detected by a strong grid period (≥2px blocks).
+    const LADDER_PIXEL_UPSCALED = [
       [1.0, 256, 1], [0.5, 256, 1], [0.5, 128, 1], [0.3333, 256, 1], [0.3333, 128, 1],
       [0.25, 256, 1], [0.25, 128, 1], [0.25, 96, 1],
       [1.0, 64, 1], [0.5, 64, 1], [0.3333, 64, 1], [0.25, 64, 1],
       [0.25, 48, 1], [0.25, 32, 1],
       [0.5, 64, 2], [0.3333, 48, 2]
     ];
+    // (2) NATIVE-DETAIL pixel art — authored AT its display resolution, with per-pixel detail
+    //     and legible small text (this cat-robot is the example). Testing showed it compresses
+    //     best like ILLUSTRATION — full palette, gentle fractional resize, smoothing OK (a
+    //     256-color/80% result beat full-res/cut-palette). So it has no separate ladder; it
+    //     routes through LADDER_ILLUSTRATION via ladderFor(). Detected as: pixel art WITHOUT a
+    //     small clean-integer grid period (see isUpscaledSprite).
 
     // Build the working ladder for this source. The color floor is RELATIVE to the source's
     // own palette, because how much a color cut hurts depends on where it started: 256→64 is
@@ -1433,8 +1441,26 @@
     // set the floor low enough that 64 colors stays reachable for a rich source (a good
     // balance point) but block the truly destructive 32/24 rungs. An already-modest source
     // floors lower still, so it can keep shrinking. Rungs below the floor are dropped.
+    // Is this a genuine UPSCALED sprite (nearest-neighbor blowup of smaller native art)?
+    // Only these want the crisp, clean-integer-ratio, resize-first treatment. Everything else
+    // classified as "pixel" is NATIVE-DETAIL art authored at its display resolution — which,
+    // per testing, actually behaves like illustration: it tolerates gentle fractional resizes
+    // and smoothing, and looks best keeping its full palette (a 256-color/80% result beat a
+    // full-res/cut-palette one). So native-detail pixel routes through the illustration path.
+    // Tell for upscaled: a SMALL grid period (clean integer factor 2-4) at real confidence.
+    function isUpscaledSprite(artMode, detected) {
+      if (artMode !== 'pixel' || !detected) return false;
+      const p = detected.gridPeriod || 1;
+      const conf = detected.gridConfidence ?? 0;
+      return p >= 2 && p <= 4 && conf >= 0.3;
+    }
+
     function ladderFor(artMode, detected) {
-      if (artMode === 'pixel') return LADDER_PIXEL;
+      // Upscaled sprites: crisp, resize-first, clean ratios.
+      if (isUpscaledSprite(artMode, detected)) return LADDER_PIXEL_UPSCALED;
+      // Illustration AND native-detail pixel art both use the illustration ladder: gentle
+      // fractional resize, full palette held first, source-relative color floor. Native-detail
+      // pixel just happens to be flagged "pixel" but compresses best exactly like illustration.
       const src = detected && detected.uniqueColors ? detected.uniqueColors : 256;
       // ~a quarter of the source palette, clamped to a 24-64 band. Rich 256-ish source → 64;
       // mid ~128 source → ~32; small source → 24 (deep cuts are harmless when it started low).
@@ -1448,6 +1474,20 @@
       $('run').disabled = true; $('autofit').disabled = true;
       const cap = Math.floor(selectedTarget.cap * (selectedTarget.buffer ?? 0.97)); // safety buffer so uploads aren't rejected at the edge
       const ladder = ladderFor(artMode, current.detected);
+      // Only genuine upscaled sprites get the clean-integer-ratio, resize-first path. Native-
+      // detail "pixel" art uses the illustration LADDER (fractional resize, full palette first)
+      // — but stays CRISP: smoothing blends hard color boundaries into muddy intermediate
+      // tones (grey+brown→brown), casting the whole image sepia even at 256 colors. Testing
+      // confirmed the good manual result (256 colors / ~80%) was crisp, not smoothed. So
+      // smoothing is ON only for true illustration; ALL pixel-mode art stays nearest-neighbor.
+      const upscaledSprite = isUpscaledSprite(artMode, current.detected);
+      const useSmooth = artMode !== 'pixel';  // crisp for every pixel subtype; smooth only for illustration
+      // Snap any effective scale to whole percent, exactly like the manual slider produces.
+      // A raw baseScale such as 1200/1680 = 0.714285… lands the resized dimensions on an exact
+      // boundary that triggers a bad encode (palette collapses to a brown near-black band),
+      // while the same-looking manual 0.70/0.71 is clean. Restricting auto-fit to the slider's
+      // own whole-percent values keeps it on the proven-good path.
+      const snapScale = s => Math.max(0.05, Math.round(s * 100) / 100);
       // Display-size pre-cap: no social platform shows a GIF above ~1200px on its longest
       // side (X recommends ≤1200). If the source is bigger, fold a downscale into the
       // ladder's baseline so we shrink oversized dimensions FIRST — free savings with no
@@ -1457,9 +1497,9 @@
       const DISPLAY_MAX = 1200;
       let baseScale = 1;
       if (longest > DISPLAY_MAX) {
-        if (artMode === 'pixel') {
-          // Pixel art must scale on clean integer ratios to keep the grid crisp. Snap to
-          // the LARGEST of 1/2, 1/3, 1/4 that lands the longest side <= DISPLAY_MAX,
+        if (upscaledSprite) {
+          // Upscaled sprites must scale on clean integer ratios to keep the grid crisp. Snap
+          // to the LARGEST of 1/2, 1/3, 1/4 that lands the longest side <= DISPLAY_MAX,
           // holding the full palette. (If even 1/4 is still over, the ladder's own
           // resizing takes it further.)
           for (const r of [1 / 2, 1 / 3, 1 / 4]) {
@@ -1485,7 +1525,7 @@
       // trigger a jump and behave exactly like the old linear walk.
       const encoded = new Map();  // index -> { size, data, scale, colors, frameStep } (memoized)
       const isDestructive = (rungScale, colors, frameStep) => {
-        const destructiveResize = artMode === 'pixel' ? false : (rungScale <= 0.3);
+        const destructiveResize = upscaledSprite ? false : (rungScale <= 0.3);
         return (rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || frameStep > 1;
       };
       // Consistent search-status line. Shows the measured filesize alongside the settings so
@@ -1518,7 +1558,7 @@
       const tryRung = async (i, jumping) => {
         if (encoded.has(i)) return encoded.get(i);
         const [rungScale, colors, frameStep] = ladder[i];
-        const scale = rungScale * baseScale;
+        const scale = snapScale(rungScale * baseScale);
         // Double-bolt while taking big jumps (far from cap); normal label when stepping.
         const label = jumping ? '⚡⚡ Turbo Auto-fitting' : 'Auto-fitting';
         // Hold the best-so-far size while THIS rung encodes, so the number never blanks out.
@@ -1526,7 +1566,7 @@
         progressSet((i + 1) / ladder.length);
         await new Promise(r => setTimeout(r, 10));
         let data;
-        try { data = await buildGIF(current.decoded, { scale, colors, frameStep, smooth: artMode !== 'pixel' }); }
+        try { data = await buildGIF(current.decoded, { scale, colors, frameStep, smooth: useSmooth }); }
         catch (err) { return null; }
         const rec = { size: data.length, data, scale, colors, frameStep, rungScale, i };
         encoded.set(i, rec);
@@ -1612,12 +1652,12 @@
         let hi = prevOver.scale;    // known-too-big
         let bestScale = chosen.scale, bestSize = outSize, bestData = outData;
         for (let iter = 0; iter < 5; iter++) {           // 5 passes ≈ within ~1.5% of ideal
-          const mid = (lo + hi) / 2;
+          const mid = snapScale((lo + hi) / 2);
           searchStatus('Refining', mid, chosen.colors, bestShownSize); // hold best-so-far while encoding
           progressSet(0.5);
           await new Promise(r => setTimeout(r, 10));
           let data;
-          try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameStep: 1, smooth: artMode !== 'pixel' }); }
+          try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameStep: 1, smooth: useSmooth }); }
           catch (err) { break; }
           noteSize(data.length);                          // fitting passes grow toward cap (good)
           searchStatus('Refining', mid, chosen.colors, bestShownSize);
@@ -1635,6 +1675,23 @@
       }
 
       progressDone();
+
+      // FINAL CLEAN REBUILD. The search runs many rapid encodes; under that load, later frames
+      // can read back corrupt (palette collapses → brown cast). The delivered GIF must not come
+      // from a search pass. So re-encode ONCE at the chosen settings, in isolation — the exact
+      // single-build path a manual Compress uses, which is always correct. A short settle delay
+      // lets the search's canvas/GPU work fully drain first.
+      if (chosen) {
+        setStatus('Finalizing…');
+        await new Promise(r => setTimeout(r, 80)); // let prior encode work settle
+        try {
+          const clean = await buildGIF(current.decoded, {
+            scale: chosen.scale, colors: chosen.colors, frameStep: chosen.frameStep, smooth: useSmooth
+          });
+          outData = clean; outSize = clean.length;
+        } catch (err) { /* keep the search's outData as fallback */ }
+      }
+
       // reflect chosen settings in UI
       $('scale').value = Math.round(chosen.scale * 100); $('scaleV').textContent = Math.round(chosen.scale * 100) + '%';
       $('colors').value = chosen.colors; $('colorsV').textContent = chosen.colors;
@@ -1930,7 +1987,21 @@
        - Floyd–Steinberg-lite (nearest, no dither for size) mapping
        - LZW encode, single global palette
        ============================================================ */
-    async function buildGIF(decoded, opts, onProgress) {
+    // buildGIF yields the event loop mid-encode (every few frames) to keep the UI alive.
+    // Auto-fit fires many buildGIF calls in sequence, and those mid-encode yields let a later
+    // call's work interleave with an earlier one — they share the browser's 2D-canvas resources
+    // and closure state, so two overlapping encodes corrupt each other (same byte length, wrong
+    // pixels — the "brown cast" bug). A manual Compress runs exactly one encode, so it's fine.
+    // Fix: serialize ALL encodes through a promise chain so only one ever runs at a time.
+    let _encodeChain = Promise.resolve();
+    function buildGIF(decoded, opts, onProgress) {
+      const run = _encodeChain.then(() => buildGIF_impl(decoded, opts, onProgress));
+      // keep the chain alive even if a call rejects, so one failure doesn't wedge the queue
+      _encodeChain = run.catch(() => { });
+      return run;
+    }
+
+    async function buildGIF_impl(decoded, opts, onProgress) {
       const scale = opts.scale ?? 1;
       const colors = Math.max(2, Math.min(256, opts.colors ?? 256));
       const step = Math.max(1, opts.frameStep ?? 1);
