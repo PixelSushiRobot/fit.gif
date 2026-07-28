@@ -415,6 +415,14 @@
       color: var(--muted);
     }
 
+    /* "Auto-detected" qualifier on the Art type label — right-aligned and styled identically
+       to the Drop frames value (.v). Shown only while detection owns the current mode. */
+    .ctrl .lab .auto {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
     .ctrl .lab .v {
       font-size: 12px;
       color: var(--accent);
@@ -862,7 +870,7 @@
           <h2><span class="num">03</span> Compression settings</h2>
 
           <div class="ctrl">
-            <div class="lab"><b>Art type</b></div>
+            <div class="lab"><b>Art type</b><span class="auto" id="artAuto"></span></div>
             <div class="seg" id="artmode">
               <button class="seg-btn on" data-mode="illustration">Illustration (smooth)</button>
               <button class="seg-btn" data-mode="pixel">Pixel art (crisp)</button>
@@ -1120,16 +1128,19 @@
         colors: "For detailed or dithered pixel art, resize before cutting colors — the palette carries the shading. Keep 128–256; drop it only if resizing isn't enough."
       }
     };
-    function setArtMode(mode) {
+    function setArtMode(mode, auto) {
       artMode = mode;
       $('artmode').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
       const h = ART_HINTS[artMode];
       $('artHint').textContent = h.art;
       $('scaleHint').textContent = h.scale;
       $('colorsHint').textContent = h.colors;
+      // Label qualifier: show "· auto-detected" only while detection owns the choice. A manual
+      // pick (auto falsy) clears it, since the selection is now the user's, not the detector's.
+      $('artAuto').textContent = auto ? 'Auto-detected' : '';
     }
     $('artmode').querySelectorAll('.seg-btn').forEach(btn => {
-      btn.onclick = () => setArtMode(btn.dataset.mode);
+      btn.onclick = () => setArtMode(btn.dataset.mode, false); // manual pick — clear the auto tag
     });
 
     // ---------- File input / drop ----------
@@ -1178,6 +1189,10 @@
       const detected = detectArtType(decoded);
       current.detected = detected;
       $('ftype').textContent = 'looks like ' + detected.label;
+      // Auto-select the toggle to the detected mode (both pixel subtypes map to the pixel
+      // toggle; illustration maps to illustration). Marked auto so the "Art type · auto-
+      // detected" label shows until the user overrides.
+      setArtMode(detected.type === 'pixel' ? 'pixel' : 'illustration', true);
 
       // large-file guardrail: many-frame, high-res GIFs are slow in a from-scratch decoder
       const px = decoded.width * decoded.height * decoded.frames.length;
