@@ -957,10 +957,14 @@
        ============================================================ */
 
     // ---------- Platform targets (bytes) ----------
-    const MB = 1024 * 1024, KB = 1024;
+    // `pixelCap` (optional) is a limit on TOTAL pixels = width × height × frames, separate from
+    // the file-size `cap`. Farcaster rejects animated GIFs over ~100 MP regardless of file size
+    // (confirmed empirically: 99.6 MP uploads, 102.8 MP fails — matches Cloudflare Images' 100 MP
+    // ceiling, which Farcaster appears to use). We enforce 95 MP as a safety margin.
+    const MB = 1024 * 1024, KB = 1024, MP = 1e6;
     const TARGETS = [
       { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts GIFs up to 15 MB on web (5 MB on the mobile app). Over the cap, X auto-converts to video.' },
-      { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, note: 'Farcaster supports animated GIF up to 10 MB. It favors a 3:2 card — a 1:1 loop still works, just not full-bleed.' },
+      { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, pixelCap: 95 * MP, note: 'Farcaster caps animated GIF at 10 MB AND ~100 MP total (width × height × frames) — a big, long GIF can be rejected on pixel count even under 10 MB.' },
       { id: 'discord', name: 'Discord', cap: 10 * MB, buffer: 0.95, note: 'Discord free-tier upload cap is 10 MB (50 MB Nitro Basic, 500 MB full Nitro).' },
       // Custom target: user sets its own cap (MB). buffer 1.0 honors the number literally —
       // they typed an exact ceiling, so we don't shave a safety margin off it like the
@@ -1525,6 +1529,42 @@
           baseScale = DISPLAY_MAX / longest;
         }
       }
+
+      // ---------- Pixel-budget pre-cap (width × height × frames) ----------
+      // Some platforms (Farcaster) reject animated GIFs over a total-pixel limit regardless of
+      // file size. If the source is over `pixelCap`, fold a baseline reduction in FIRST so every
+      // ladder rung starts pixel-legal. Which lever we pull is art-type dependent (per testing):
+      //   • pixel art  → drop FRAMES first (resolution is the art; resize looks bad).
+      //   • illustration → RESIZE first (tolerates smooth downscale; over-decimation stutters).
+      // Frames are reduced to an EXACT evenly-spaced count (not a coarse ÷2/÷3 step), so we keep
+      // as MANY frames as possible — e.g. a 105 MP file drops to ~90 frames (just under cap),
+      // not 50. Slightly uneven cadence is acceptable; staying close to the original art wins.
+      const pixelCap = selectedTarget.pixelCap || Infinity;
+      const nFrames = current.decoded.frames.length;
+      let baseFrameCount = nFrames; // how many frames to keep (evenly spaced); nFrames = keep all
+      if (isFinite(pixelCap)) {
+        const ow = current.decoded.width, oh = current.decoded.height;
+        const budgetAt = (scl, frames) => (ow * scl) * (oh * scl) * frames;
+        if (budgetAt(baseScale, nFrames) > pixelCap) {
+          if (artMode === 'pixel') {
+            // frames first: keep the most frames that fit at current resolution
+            baseFrameCount = Math.max(1, Math.floor(pixelCap / (ow * baseScale * oh * baseScale)));
+            baseFrameCount = Math.min(nFrames, baseFrameCount);
+            // if even 1 frame at this resolution won't fit (huge canvas), resize the rest
+            if (budgetAt(baseScale, baseFrameCount) > pixelCap) {
+              baseScale = snapScale(Math.sqrt(pixelCap / (ow * oh * baseFrameCount)));
+            }
+          } else {
+            // illustration: resize first to hit budget at full frames
+            baseScale = snapScale(Math.sqrt(pixelCap / (ow * oh * nFrames)));
+            // if resize alone floors out (very long GIF), trim frames for the remainder
+            if (budgetAt(baseScale, nFrames) > pixelCap) {
+              baseFrameCount = Math.max(1, Math.floor(pixelCap / (ow * baseScale * oh * baseScale)));
+              baseFrameCount = Math.min(nFrames, baseFrameCount);
+            }
+          }
+        }
+      }
       progressStart(false);
       let chosen = null, outSize = 0, outData = null, bailed = false;
       // Track the last over-cap attempt so a refinement pass can search the headroom between
@@ -1539,9 +1579,12 @@
       // didn't skip a higher-quality rung that also fits. Easy sources (already near cap) never
       // trigger a jump and behave exactly like the old linear walk.
       const encoded = new Map();  // index -> { size, data, scale, colors, frameStep } (memoized)
-      const isDestructive = (rungScale, colors, frameStep) => {
+      const isDestructive = (rungScale, colors, rungFrameStep) => {
         const destructiveResize = upscaledSprite ? false : (rungScale <= 0.3);
-        return (rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || frameStep > 1;
+        // The pixel-budget base frame reduction (baseFrameCount) is a mandatory legality step,
+        // not a quality choice — so destructiveness keys only on whether THIS RUNG chose to drop
+        // frames further (rungFrameStep > 1) on top of the baseline.
+        return (rungScale <= 0.4 && colors <= 32) || (destructiveResize && colors <= 64) || rungFrameStep > 1;
       };
       // Consistent search-status line. Shows the measured filesize alongside the settings so
       // the user watches the number march toward the cap — reassures them progress is real
@@ -1572,8 +1615,12 @@
       };
       const tryRung = async (i, jumping) => {
         if (encoded.has(i)) return encoded.get(i);
-        const [rungScale, colors, frameStep] = ladder[i];
+        const [rungScale, colors, rungFrameStep] = ladder[i];
         const scale = snapScale(rungScale * baseScale);
+        // Effective frame count = the pixel-budget baseline (evenly-spaced), reduced further if
+        // THIS rung also drops frames (file-size last resort). Passed to buildGIF as an exact
+        // count so we keep the maximum frames the constraints allow.
+        const frameCount = Math.max(1, Math.ceil(baseFrameCount / rungFrameStep));
         // Double-bolt while taking big jumps (far from cap); normal label when stepping.
         const label = jumping ? '⚡⚡ Turbo Auto-fitting' : 'Auto-fitting';
         // Hold the best-so-far size while THIS rung encodes, so the number never blanks out.
@@ -1581,14 +1628,14 @@
         progressSet((i + 1) / ladder.length);
         await new Promise(r => setTimeout(r, 10));
         let data;
-        try { data = await buildGIF(current.decoded, { scale, colors, frameStep, smooth: useSmooth }); }
+        try { data = await buildGIF(current.decoded, { scale, colors, frameCount, smooth: useSmooth }); }
         catch (err) { return null; }
-        const rec = { size: data.length, data, scale, colors, frameStep, rungScale, i };
+        const rec = { size: data.length, data, scale, colors, frameCount, rungFrameStep, rungScale, i };
         encoded.set(i, rec);
         noteSize(rec.size);                             // update best-so-far (toward goal only)
         searchStatus(label, scale, colors, bestShownSize);
         // best-effort fallback: keep the smallest seen so far
-        if (!outData || rec.size < outSize) { chosen = { scale, colors, frameStep }; outSize = rec.size; outData = data; }
+        if (!outData || rec.size < outSize) { chosen = { scale, colors, frameCount, rungFrameStep }; outSize = rec.size; outData = data; }
         return rec;
       };
 
@@ -1612,8 +1659,8 @@
         const rec = await tryRung(i, false);
         if (!rec) { i++; continue; }
         if (rec.size <= cap) { fitIndex = i; break; }         // found a fit
-        prevOver = { scale: rec.scale, colors: rec.colors, frameStep: rec.frameStep, size: rec.size };
-        if (isDestructive(rec.rungScale, rec.colors, rec.frameStep)) { bailed = true; break; }
+        prevOver = { scale: rec.scale, colors: rec.colors, frameCount: rec.frameCount, rungFrameStep: rec.rungFrameStep, size: rec.size };
+        if (isDestructive(rec.rungScale, rec.colors, rec.rungFrameStep)) { bailed = true; break; }
 
         // Decide the next index. Far over + we have a slope ⇒ jump; else single step.
         let next = i + 1;
@@ -1630,13 +1677,13 @@
                 while (b - 1 > i) {
                   const back = await tryRung(b - 1, false);
                   if (!back) break;
-                  if (back.size <= cap) { b--; } else { prevOver = { scale: back.scale, colors: back.colors, frameStep: back.frameStep, size: back.size }; break; }
+                  if (back.size <= cap) { b--; } else { prevOver = { scale: back.scale, colors: back.colors, frameCount: back.frameCount, rungFrameStep: back.rungFrameStep, size: back.size }; break; }
                 }
                 fitIndex = b; break;
               } else {
                 // still over after the jump — continue searching from there
-                prevOver = { scale: jrec.scale, colors: jrec.colors, frameStep: jrec.frameStep, size: jrec.size };
-                if (isDestructive(jrec.rungScale, jrec.colors, jrec.frameStep)) { bailed = true; break; }
+                prevOver = { scale: jrec.scale, colors: jrec.colors, frameCount: jrec.frameCount, rungFrameStep: jrec.rungFrameStep, size: jrec.size };
+                if (isDestructive(jrec.rungScale, jrec.colors, jrec.rungFrameStep)) { bailed = true; break; }
                 last = rec; i = jumpTo; continue;
               }
             }
@@ -1649,7 +1696,7 @@
       // adopt the chosen fitting rung (if any) as the current best
       if (fitIndex >= 0) {
         const rec = encoded.get(fitIndex);
-        chosen = { scale: rec.scale, colors: rec.colors, frameStep: rec.frameStep };
+        chosen = { scale: rec.scale, colors: rec.colors, frameCount: rec.frameCount, rungFrameStep: rec.rungFrameStep };
         outSize = rec.size; outData = rec.data;
       }
 
@@ -1659,20 +1706,26 @@
       // previous rung — same color count — was over cap, binary-search the scale between them
       // to push closer to the cap while KEEPING a comfortable margin (aim ~85% of the
       // effective cap, never above it) so a platform's own re-encode won't tip it over.
-      if (!bailed && chosen && chosen.frameStep === 1 && prevOver &&
-          prevOver.colors === chosen.colors && prevOver.frameStep === 1 &&
+      // Refinement keeps the chosen frame count fixed (including any pixel-budget baseline), and
+      // must not push scale so high that it re-crosses the pixel cap.
+      // largest scale that still respects the pixel cap at the chosen frame count
+      const pixelMaxScale = isFinite(pixelCap) && chosen
+        ? Math.sqrt(pixelCap / (current.decoded.width * current.decoded.height * chosen.frameCount))
+        : Infinity;
+      if (!bailed && chosen && chosen.rungFrameStep === 1 && prevOver &&
+          prevOver.colors === chosen.colors && prevOver.rungFrameStep === 1 &&
           prevOver.scale > chosen.scale && outSize < cap * 0.9) {
         const targetLo = cap * 0.82, targetHi = cap; // acceptable band: land in here, prefer high
         let lo = chosen.scale;      // known-good (fits)
-        let hi = prevOver.scale;    // known-too-big
+        let hi = Math.min(prevOver.scale, pixelMaxScale); // don't refine past the pixel cap
         let bestScale = chosen.scale, bestSize = outSize, bestData = outData;
-        for (let iter = 0; iter < 5; iter++) {           // 5 passes ≈ within ~1.5% of ideal
+        for (let iter = 0; iter < 5 && hi > lo; iter++) {  // 5 passes ≈ within ~1.5% of ideal
           const mid = snapScale((lo + hi) / 2);
           searchStatus('Refining', mid, chosen.colors, bestShownSize); // hold best-so-far while encoding
           progressSet(0.5);
           await new Promise(r => setTimeout(r, 10));
           let data;
-          try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameStep: 1, smooth: useSmooth }); }
+          try { data = await buildGIF(current.decoded, { scale: mid, colors: chosen.colors, frameCount: chosen.frameCount, smooth: useSmooth }); }
           catch (err) { break; }
           noteSize(data.length);                          // fitting passes grow toward cap (good)
           searchStatus('Refining', mid, chosen.colors, bestShownSize);
@@ -1685,7 +1738,7 @@
             hi = mid; // too big, pull back
           }
         }
-        chosen = { scale: bestScale, colors: chosen.colors, frameStep: 1 };
+        chosen = { scale: bestScale, colors: chosen.colors, frameCount: chosen.frameCount, rungFrameStep: chosen.rungFrameStep };
         outSize = bestSize; outData = bestData;
       }
 
@@ -1701,7 +1754,7 @@
         await new Promise(r => setTimeout(r, 80)); // let prior encode work settle
         try {
           const clean = await buildGIF(current.decoded, {
-            scale: chosen.scale, colors: chosen.colors, frameStep: chosen.frameStep, smooth: useSmooth
+            scale: chosen.scale, colors: chosen.colors, frameCount: chosen.frameCount, smooth: useSmooth
           });
           outData = clean; outSize = clean.length;
         } catch (err) { /* keep the search's outData as fallback */ }
@@ -1710,7 +1763,10 @@
       // reflect chosen settings in UI
       $('scale').value = Math.round(chosen.scale * 100); $('scaleV').textContent = Math.round(chosen.scale * 100) + '%';
       $('colors').value = chosen.colors; $('colorsV').textContent = chosen.colors;
-      $('dropframes').value = chosen.frameStep; $('dropV').textContent = chosen.frameStep === 1 ? 'Keep all' : ('1 in ' + chosen.frameStep);
+      // Frames are now an exact count (evenly spaced), not a step — reflect count vs. original.
+      const keptAll = chosen.frameCount >= current.decoded.frames.length;
+      $('dropframes').value = keptAll ? 1 : 2; // best-effort select state (count model is finer than the dropdown)
+      $('dropV').textContent = keptAll ? 'Keep all' : (`${chosen.frameCount} of ${current.decoded.frames.length}`);
       lastOutputBlob = new Blob([outData], { type: 'image/gif' });
       showResult(outSize, chosen, true, bailed);
       $('run').disabled = false; $('autofit').disabled = false;
@@ -1787,7 +1843,7 @@
       const el = $('mp4advice');
       const heavyResize = (opts.scale ?? 1) < 0.5;
       const heavyColors = (opts.colors ?? 256) < 32;
-      const droppedFrames = (opts.frameStep ?? 1) > 1;
+      const droppedFrames = opts.frameCount != null && current && opts.frameCount < current.decoded.frames.length;
       let msg = '';
       if (bailed) {
         msg = `<b>Stopped early.</b> This GIF is too dense to fit ${selectedTarget.name} without destroying quality — cutting colors or shrinking further would just look bad. Export it as <b>MP4</b> instead: ${selectedTarget.name} accepts video, and it'll be a fraction the size at full quality. The best-effort GIF below is still downloadable if you need it.`;
@@ -1807,8 +1863,11 @@
     $('download').onclick = () => {
       if (!lastOutputBlob) { setStatus('Compress a GIF first, then download.', true); return; }
       const base = current.name.replace(/\.gif$/i, '');
-      const filename = `${base}-${selectedTarget.id}.gif`;
-      const url = URL.createObjectURL(lastOutputBlob);
+      downloadBlob(lastOutputBlob, `${base}-${selectedTarget.id}.gif`);
+    };
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -1817,7 +1876,7 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
-    };
+    }
 
     /* ============================================================
        GIF DECODER  (GIF87a / GIF89a, LZW)
@@ -2023,13 +2082,21 @@
       const smooth = opts.smooth !== false; // false = crisp nearest-neighbor for pixel art
 
       const ow = decoded.width, oh = decoded.height;
-      const nw = Math.max(1, Math.round(ow * scale));
-      const nh = Math.max(1, Math.round(oh * scale));
+      // Callers can request EXACT output dimensions (outW/outH) instead of a scale factor.
+      const nw = Math.max(1, opts.outW ? Math.round(opts.outW) : Math.round(ow * scale));
+      const nh = Math.max(1, opts.outH ? Math.round(opts.outH) : Math.round(oh * scale));
 
       // pick frames
       const src = decoded.frames;
       const picked = [];
-      for (let i = 0; i < src.length; i += step) picked.push(src[i]);
+      if (opts.frameCount) {
+        // EXACT number of evenly-spaced frames across the animation (used by the pixel-budget
+        // reduction to keep as many frames as possible, rather than a coarse every-Nth step).
+        const want = Math.max(1, Math.min(src.length, Math.round(opts.frameCount)));
+        for (let k = 0; k < want; k++) picked.push(src[Math.floor(k * src.length / want)]);
+      } else {
+        for (let i = 0; i < src.length; i += step) picked.push(src[i]);
+      }
       if (!picked.length) picked.push(src[0]);
 
       // resize each frame into RGBA at nw x nh

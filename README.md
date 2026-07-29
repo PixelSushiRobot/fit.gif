@@ -14,8 +14,9 @@ Posting GIF art often means converting it to MP4 just to clear an upload limit �
 
 - **One-click auto-fit** — pick a target and it finds the largest settings that stay under the limit.
 - **Custom size target** — set your own cap in MB for email, embeds, or any platform not listed.
-- **Art-type detection** — recognizes pixel art vs. illustration and adapts: crisp integer-ratio resizes for pixel art, smooth downscaling for illustration, no dithering either way.
+- **Auto art-type detection** — recognizes pixel art vs. illustration on load and sets the mode for you (override anytime): crisp integer-ratio resizes for pixel art, smooth downscaling for illustration, no dithering either way.
 - **Color-design aware** — auto-fit protects your palette based on how many colors the source actually uses, so a rich illustration never gets crushed to a few colors when a gentle resize would do.
+- **Pixel-count aware** — Farcaster also caps total pixels (width × height × frames), so a big, long GIF can be rejected even under 10MB; auto-fit trims frames to stay legal while keeping full resolution.
 - **Full manual control** — scale, color count, and frame step if you want to dial it in yourself.
 - **Runs locally** — pure client-side JavaScript, no dependencies, no build step, no server.
 
@@ -42,6 +43,7 @@ Auto-fit doesn't just cut until something fits. It steps resolution and palette 
 
 - Very large or long GIFs may need heavy compression to fit — quality trade-offs are unavoidable at extreme sizes.
 - Optimized for illustration and pixel art loops; photographic GIFs will work but aren't the focus.
+- Some platforms (e.g. Bluesky) re-compress uploads to video regardless of file size — fit.gif can't prevent that; post your original at full resolution there.
 
 ## License
 
