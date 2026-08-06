@@ -700,6 +700,18 @@
     .mp4advice.show { display: block; }
     .mp4advice b { color: var(--text); font-weight: 600; }
 
+    /* Post-result "Preserve colors" re-fit — hidden until an auto-fit runs. Re-fits at full
+       256-color palette and resizes down to fit, for when a result's colors look off. */
+    .tune { display: none; margin-top: 16px; }
+    .tune.show { display: block; }
+    .tune-lab {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      line-height: 1.5;
+      text-wrap: pretty;
+    }
+
     .bar {
       height: 8px;
       background: var(--line-2);
@@ -943,6 +955,11 @@
           <div class="mp4advice" id="mp4advice"></div>
 
           <button class="btn" id="download" style="margin-top:16px;">&#8681; Download compressed GIF</button>
+
+          <div class="tune" id="tune">
+            <div class="tune-lab">Colors look off? Re-fit with 256 colors and automatically shrink to fit. You can fine-tune the size and colors afterward.</div>
+            <button class="btn ghost" id="preferColor">Preserve colors</button>
+          </div>
         </div>
       </div>
     </div>
@@ -963,7 +980,7 @@
     // ceiling, which Farcaster appears to use). We enforce 95 MP as a safety margin.
     const MB = 1024 * 1024, KB = 1024, MP = 1e6;
     const TARGETS = [
-      { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts GIFs up to 15 MB on web (5 MB on the mobile app). Over the cap, X auto-converts to video.' },
+      { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts animated GIFs up to 15 MB on web (5 MB on the iOS/Android app). Recommended max dimensions ~1280×1080, and ≤350 frames for reliable processing.' },
       { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, pixelCap: 95 * MP, note: 'Farcaster caps animated GIF at 10 MB AND ~100 MP total (width × height × frames) — a big, long GIF can be rejected on pixel count even under 10 MB.' },
       { id: 'discord', name: 'Discord', cap: 10 * MB, buffer: 0.95, note: 'Discord free-tier upload cap is 10 MB (50 MB Nitro Basic, 500 MB full Nitro).' },
       // Custom target: user sets its own cap (MB). buffer 1.0 honors the number literally —
@@ -1474,25 +1491,40 @@
       return p >= 2 && p <= 4 && conf >= 0.3;
     }
 
-    function ladderFor(artMode, detected) {
-      // Upscaled sprites: crisp, resize-first, clean ratios.
+    function ladderFor(artMode, detected, constraint) {
+      // Upscaled sprites: crisp, resize-first, clean ratios. (Constraints don't apply — the
+      // pixel ladder's whole point is palette-preserving clean-ratio resize already.)
       if (isUpscaledSprite(artMode, detected)) return LADDER_PIXEL_UPSCALED;
-      // Illustration AND native-detail pixel art both use the illustration ladder: gentle
-      // fractional resize, full palette held first, source-relative color floor. Native-detail
-      // pixel just happens to be flagged "pixel" but compresses best exactly like illustration.
+      // Illustration AND native-detail pixel art use the illustration ladder: gentle fractional
+      // resize, full palette held first, source-relative color floor.
       const src = detected && detected.uniqueColors ? detected.uniqueColors : 256;
-      // ~a quarter of the source palette, clamped to a 24-64 band. Rich 256-ish source → 64;
-      // mid ~128 source → ~32; small source → 24 (deep cuts are harmless when it started low).
+      // "Preserve colors" re-fit: FORCE the full 256-color palette and resize down as far as
+      // needed to fit. When a default result's color looks wrong, it's because the source has
+      // fine shading or specific colors that matter — the reliable fix is max palette + smaller
+      // size, letting resolution be spent to buy full color. (The balanced ladder cuts colors as
+      // it resizes, so it has no "256 colors at 70%" rung — which is exactly the fitting result
+      // this generates. The user decides if the resulting scale is too small.)
+      if (constraint === 'color') {
+        const rungs = [];
+        for (const s of [1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5, 0.45, 0.4, 0.35, 0.3, 0.25]) {
+          rungs.push([s, 256, 1]);
+        }
+        return rungs;
+      }
+      // Balanced default: source-relative color floor, steps resolution and palette down together.
       const floor = Math.min(64, Math.max(24, Math.round(src / 4)));
       return LADDER_ILLUSTRATION.filter(([, colors]) => colors >= floor);
     }
 
     // ---------- Auto-fit: search settings until under cap ----------
-    $('autofit').onclick = async () => {
+    // `dir` (optional): 'color' = the post-result "Preserve colors" re-run — forces 256 colors
+    // and resizes down to fit, guaranteeing the palette looks right (user judges the scale).
+    async function runAutoFit(dir) {
       if (!current) return;
       $('run').disabled = true; $('autofit').disabled = true;
       const cap = Math.floor(selectedTarget.cap * (selectedTarget.buffer ?? 0.97)); // safety buffer so uploads aren't rejected at the edge
-      const ladder = ladderFor(artMode, current.detected);
+      const constraint = dir === 'color' ? 'color' : null;
+      const ladder = ladderFor(artMode, current.detected, constraint);
       // Only genuine upscaled sprites get the clean-integer-ratio, resize-first path. Native-
       // detail "pixel" art uses the illustration LADDER (fractional resize, full palette first)
       // — but stays CRISP: smoothing blends hard color boundaries into muddy intermediate
@@ -1768,11 +1800,13 @@
       $('dropframes').value = keptAll ? 1 : 2; // best-effort select state (count model is finer than the dropdown)
       $('dropV').textContent = keptAll ? 'Keep all' : (`${chosen.frameCount} of ${current.decoded.frames.length}`);
       lastOutputBlob = new Blob([outData], { type: 'image/gif' });
-      showResult(outSize, chosen, true, bailed);
+      showResult(outSize, chosen, true, bailed, dir);
       $('run').disabled = false; $('autofit').disabled = false;
-    };
+    }
+    $('autofit').onclick = () => runAutoFit();           // balanced default
+    $('preferColor').onclick = () => runAutoFit('color'); // re-fit at full 256 colors, resize to fit
 
-    function showResult(size, opts, auto, bailed) {
+    function showResult(size, opts, auto, bailed, dir) {
       const cap = selectedTarget.cap;
       const fits = size <= cap;
       const v = $('verdict');
@@ -1810,6 +1844,12 @@
       // Original-file guidance: if the source already fits, or if the re-encode came out
       // larger, let the user know they may not need this output.
       updateOrigNote(size);
+
+      // Post-result "Preserve colors" offer — shown after a BALANCED auto-fit (not manual, not
+      // upscaled sprites, and NOT after the color re-fit itself: pushing to 256 is a one-time
+      // action, so once you've taken it there's nothing further to offer).
+      const showTune = auto && dir !== 'color' && !isUpscaledSprite(artMode, current.detected);
+      $('tune').classList.toggle('show', showTune);
 
       $('results').classList.add('show');
       setStatus('');
@@ -2139,19 +2179,25 @@
 
     // ---- median-cut quantization over sampled pixels of all frames ----
     function buildPalette(frames, w, h, maxColors) {
-      // sample pixels (skip fully transparent)
-      const samples = [];
-      const total = frames.length * w * h;
-      const stride = Math.max(1, Math.floor(total / 24000)); // cap sample count
-      let counter = 0;
+      // Sample by DISTINCT COLOR, not by pixel position. Positional stride sampling (every Nth
+      // pixel) skips thin/sparse detail: a mostly-black image with a fine bright filigree loses
+      // every white pixel to the stride, so the palette builds all-black and the art turns
+      // black on output. Instead we collect unique colors (quantized to 6 bits/channel to bound
+      // the set at ≤~262k), so a rare color is represented exactly like a common one — the
+      // whites always reach median-cut. Track a count per color so median-cut can still weigh
+      // population when useful.
+      const seen = new Map(); // packed 18-bit color -> [r,g,b,count]
       for (const f of frames) {
         for (let i = 0; i < f.length; i += 4) {
-          counter++;
-          if (counter % stride !== 0) continue;
           if (f[i + 3] < 128) continue;
-          samples.push([f[i], f[i + 1], f[i + 2]]);
+          const r = f[i], g = f[i + 1], b = f[i + 2];
+          const key = ((r >> 2) << 12) | ((g >> 2) << 6) | (b >> 2); // 6 bits/channel
+          const e = seen.get(key);
+          if (e) e[3]++;
+          else seen.set(key, [r, g, b, 1]);
         }
       }
+      const samples = [...seen.values()].map(e => [e[0], e[1], e[2]]);
       if (!samples.length) samples.push([0, 0, 0]);
 
       // median cut

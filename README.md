@@ -16,6 +16,7 @@ Posting GIF art often means converting it to MP4 just to clear an upload limit �
 - **Custom size target** — set your own cap in MB for email, embeds, or any platform not listed.
 - **Auto art-type detection** — recognizes pixel art vs. illustration on load and sets the mode for you (override anytime): crisp integer-ratio resizes for pixel art, smooth downscaling for illustration, no dithering either way.
 - **Color-design aware** — auto-fit protects your palette based on how many colors the source actually uses, so a rich illustration never gets crushed to a few colors when a gentle resize would do.
+- **Preserve colors re-fit** — if a result's colors look off, one click re-fits at the full 256-color palette and shrinks the size to compensate; fine-tune from there.
 - **Pixel-count aware** — Farcaster also caps total pixels (width × height × frames), so a big, long GIF can be rejected even under 10MB; auto-fit trims frames to stay legal while keeping full resolution.
 - **Full manual control** — scale, color count, and frame step if you want to dial it in yourself.
 - **Runs locally** — pure client-side JavaScript, no dependencies, no build step, no server.
