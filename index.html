@@ -980,7 +980,7 @@
     // ceiling, which Farcaster appears to use). We enforce 95 MP as a safety margin.
     const MB = 1024 * 1024, KB = 1024, MP = 1e6;
     const TARGETS = [
-      { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, note: 'X accepts animated GIFs up to 15 MB on web (5 MB on the iOS/Android app). Recommended max dimensions ~1280×1080, and ≤350 frames for reliable processing.' },
+      { id: 'x', name: 'X / Twitter', cap: 15 * MB, buffer: 0.97, dimMax: 1280, frameMax: 350, note: 'X accepts animated GIFs up to 15 MB on web (5 MB on the iOS/Android app). Recommended max dimensions ~1280×1080, and ≤350 frames for reliable processing.' },
       { id: 'farcaster', name: 'Farcaster', cap: 10 * MB, buffer: 0.97, pixelCap: 95 * MP, note: 'Farcaster caps animated GIF at 10 MB AND ~100 MP total (width × height × frames) — a big, long GIF can be rejected on pixel count even under 10 MB.' },
       { id: 'discord', name: 'Discord', cap: 10 * MB, buffer: 0.95, note: 'Discord free-tier upload cap is 10 MB (50 MB Nitro Basic, 500 MB full Nitro).' },
       // Custom target: user sets its own cap (MB). buffer 1.0 honors the number literally —
@@ -1224,12 +1224,30 @@
       }
     }
 
+    // Which NON-size limits does the original exceed for the selected target? File size under
+    // the cap doesn't guarantee acceptance — platforms also reject on dimensions, pixel count
+    // (w×h×frames), or frame count. Returns a short human list of the concerns, or ''.
+    function originalConcerns() {
+      if (!current) return '';
+      const t = selectedTarget, d = current.decoded;
+      const longest = Math.max(d.width, d.height);
+      const frames = d.frames.length;
+      const bits = [];
+      if (t.dimMax && longest > t.dimMax) bits.push(`dimensions (${d.width}×${d.height}, over ~${t.dimMax}px)`);
+      if (t.pixelCap && d.width * d.height * frames > t.pixelCap) bits.push(`pixel count (${Math.round(d.width * d.height * frames / MP)} MP)`);
+      if (t.frameMax && frames > t.frameMax) bits.push(`frame count (${frames}, over ${t.frameMax})`);
+      return bits.join(' and ');
+    }
+
     function evaluateExisting() {
       // just informational; note if original already fits
       if (!current) return;
       const fits = current.size <= selectedTarget.cap;
+      const concerns = originalConcerns();
       setStatus(fits
-        ? `Original already fits under ${selectedTarget.name} (${fmtBytes(selectedTarget.cap)}). Compress anyway to shrink further.`
+        ? (concerns
+          ? `Under the ${fmtBytes(selectedTarget.cap)} ${selectedTarget.name} size cap, but its ${concerns} may still get rejected — Auto-fit will bring it in line.`
+          : `Original already fits under ${selectedTarget.name} (${fmtBytes(selectedTarget.cap)}). Compress anyway to shrink further.`)
         : `Original is ${fmtBytes(current.size)} — over the ${fmtBytes(selectedTarget.cap)} ${selectedTarget.name} cap by ${fmtBytes(current.size - selectedTarget.cap)}.`);
     }
 
@@ -1873,7 +1891,10 @@
         // can fix a GIF a platform rejected for encoding quirks.
         msg = `This re-encode is <b>larger</b> than your original (${fmtBytes(current.size)} → ${fmtBytes(size)}). If the original posts fine, use it. If a platform rejected the original, this clean re-encode may upload where the original wouldn't.`;
       } else if (origFits) {
-        msg = `Your original already fits ${selectedTarget.name} (${fmtBytes(current.size)}) — you can post it as-is. Compress only if you want a smaller file.`;
+        const concerns = originalConcerns();
+        msg = concerns
+          ? `Your original is under the ${selectedTarget.name} size cap (${fmtBytes(current.size)}), but its ${concerns} may still get rejected — this compressed version brings it in line.`
+          : `Your original already fits ${selectedTarget.name} (${fmtBytes(current.size)}) — you can post it as-is. Compress only if you want a smaller file.`;
       }
       if (msg) { el.innerHTML = msg; el.classList.add('show'); }
       else { el.classList.remove('show'); el.innerHTML = ''; }
