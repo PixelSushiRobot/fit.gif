@@ -5,6 +5,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>fit.gif</title>
+  <!-- 1. The Main Icon (Covers 95%+ of modern desktop browsers) -->
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+
+  <!-- 2. The Google Search & Legacy Fallback (Always include exactly one PNG) -->
+  <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png">
+
+  <!-- 3. Apple Home Screen Icon (iOS still prefers a static PNG) -->
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
+  <!-- 4. Android & PWA Manifest -->
+  <link rel="manifest" href="/site.webmanifest">
+
   <style>
     /* Dark theme (default) — monochrome */
     :root,
@@ -697,13 +709,27 @@
       color: var(--muted);
       text-wrap: pretty;
     }
-    .mp4advice.show { display: block; }
-    .mp4advice b { color: var(--text); font-weight: 600; }
+
+    .mp4advice.show {
+      display: block;
+    }
+
+    .mp4advice b {
+      color: var(--text);
+      font-weight: 600;
+    }
 
     /* Post-result "Preserve colors" re-fit — hidden until an auto-fit runs. Re-fits at full
        256-color palette and resizes down to fit, for when a result's colors look off. */
-    .tune { display: none; margin-top: 16px; }
-    .tune.show { display: block; }
+    .tune {
+      display: none;
+      margin-top: 16px;
+    }
+
+    .tune.show {
+      display: block;
+    }
+
     .tune-lab {
       font-size: 11px;
       color: var(--muted);
@@ -779,21 +805,32 @@
       opacity: 0;
       transition: opacity 0.15s;
     }
-    .progress.show { opacity: 1; }
+
+    .progress.show {
+      opacity: 1;
+    }
+
     .progress-fill {
       height: 100%;
       width: 0;
       background: var(--accent);
       transition: width 0.2s ease;
     }
+
     /* indeterminate sweep for a single compress pass (unknown duration) */
     .progress.indet .progress-fill {
       width: 35%;
       animation: sweep 1s ease-in-out infinite;
     }
+
     @keyframes sweep {
-      0% { margin-left: -35%; }
-      100% { margin-left: 100%; }
+      0% {
+        margin-left: -35%;
+      }
+
+      100% {
+        margin-left: 100%;
+      }
     }
 
     .foot {
@@ -887,19 +924,22 @@
               <button class="seg-btn on" data-mode="illustration">Illustration (smooth)</button>
               <button class="seg-btn" data-mode="pixel">Pixel art (crisp)</button>
             </div>
-            <div class="hint" id="artHint">Smooth downscaling for illustration art. Nearest-color palette, no dither — dithering adds noise that hurts illustration.</div>
+            <div class="hint" id="artHint">Smooth downscaling for illustration art. Nearest-color palette, no dither —
+              dithering adds noise that hurts illustration.</div>
           </div>
 
           <div class="ctrl">
             <div class="lab"><b>Resize</b><span class="v" id="scaleV">100%</span></div>
             <input type="range" id="scale" min="20" max="100" value="100" step="5">
-            <div class="hint" id="scaleHint">On flat art, cut colors first — resize is the fallback for tight caps.</div>
+            <div class="hint" id="scaleHint">On flat art, cut colors first — resize is the fallback for tight caps.
+            </div>
           </div>
 
           <div class="ctrl">
             <div class="lab"><b>Colors</b><span class="v" id="colorsV">256</span></div>
             <input type="range" id="colors" min="8" max="256" value="256" step="8">
-            <div class="hint" id="colorsHint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for two-tone loops.
+            <div class="hint" id="colorsHint">Biggest lever for flat art: 64 is invisible on illustration, 32 fine for
+              two-tone loops.
             </div>
           </div>
 
@@ -920,7 +960,9 @@
           <button class="btn ghost" id="autofit" disabled style="margin-bottom:10px;">&#9889; Auto-fit to
             target</button>
           <button class="btn" id="run" disabled>Compress GIF</button>
-          <div class="progress" id="progress"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress" id="progress">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
           <div id="status"></div>
         </div>
 
@@ -957,7 +999,8 @@
           <button class="btn" id="download" style="margin-top:16px;">&#8681; Download compressed GIF</button>
 
           <div class="tune" id="tune">
-            <div class="tune-lab">Colors look off? Re-fit with 256 colors and automatically shrink to fit. You can fine-tune the size and colors afterward.</div>
+            <div class="tune-lab">Colors look off? Re-fit with 256 colors and automatically shrink to fit. You can
+              fine-tune the size and colors afterward.</div>
             <button class="btn ghost" id="preferColor">Preserve colors</button>
           </div>
         </div>
@@ -1058,8 +1101,8 @@
         // exist in markup; CSS shows one at a time based on the parent's .on state.
         el.innerHTML = `<span class="n">${t.name}</span>` +
           `<span class="c custom-chip">` +
-            `<span class="chip-static">${fmtBytes(t.cap)}</span>` +
-            `<span class="chip-edit"><input type="number" id="customMB" inputmode="decimal" aria-label="Custom size limit in megabytes"><span class="unit">MB</span></span>` +
+          `<span class="chip-static">${fmtBytes(t.cap)}</span>` +
+          `<span class="chip-edit"><input type="number" id="customMB" inputmode="decimal" aria-label="Custom size limit in megabytes"><span class="unit">MB</span></span>` +
           `</span>`;
       } else {
         el.innerHTML = `<span class="n">${t.name}</span><span class="c">${fmtBytes(t.cap)}</span>`;
@@ -1763,8 +1806,8 @@
         ? Math.sqrt(pixelCap / (current.decoded.width * current.decoded.height * chosen.frameCount))
         : Infinity;
       if (!bailed && chosen && chosen.rungFrameStep === 1 && prevOver &&
-          prevOver.colors === chosen.colors && prevOver.rungFrameStep === 1 &&
-          prevOver.scale > chosen.scale && outSize < cap * 0.9) {
+        prevOver.colors === chosen.colors && prevOver.rungFrameStep === 1 &&
+        prevOver.scale > chosen.scale && outSize < cap * 0.9) {
         const targetLo = cap * 0.82, targetHi = cap; // acceptable band: land in here, prefer high
         let lo = chosen.scale;      // known-good (fits)
         let hi = Math.min(prevOver.scale, pixelMaxScale); // don't refine past the pixel cap
