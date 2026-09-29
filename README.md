@@ -4,7 +4,7 @@
 
 fit.gif compresses GIF loops down to the size limits of X/Twitter (15MB), Farcaster (10MB), and Discord (10MB), so your art posts as a real GIF instead of a video. It's tuned for illustration and pixel art loops, and it runs entirely on your device.
 
-**→ [Try it live](https://pixelsushirobot.github.io/fit.gif/)** — no install, nothing to upload.
+**→ [Try it live](https://fit.gif.psr.fyi/)** — no install, nothing to upload.
 
 ## Why
 
