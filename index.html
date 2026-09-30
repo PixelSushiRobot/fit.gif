@@ -249,7 +249,7 @@
       margin-top: var(--sp-5);
     }
 
-    .panel h2 {
+    .phead {
       text-transform: uppercase;
       letter-spacing: var(--track-wide);
       font-size: var(--fs-2xs);
@@ -263,13 +263,13 @@
       border-bottom: 1px solid var(--line-2);
     }
 
-    .panel h2 .num {
+    .phead .step {
       color: var(--accent);
       font-size: var(--fs-2xs);
       font-weight: 600;
     }
 
-    .panel h2 .count {
+    .phead .count {
       margin-left: auto;
       color: var(--dim);
       letter-spacing: 0.1em;
@@ -908,7 +908,7 @@
       <!-- LEFT: input + controls -->
       <div>
         <div class="panel">
-          <h2><span class="num">01</span> Your GIF</h2>
+          <h2 class="phead"><span class="step">01</span>Your GIF</h2>
           <div id="drop">
             <div class="t">Drop a GIF here</div>
             <div class="s">or click to choose</div>
@@ -930,7 +930,7 @@
         </div>
 
         <div class="panel" style="margin-top:var(--sp-6);">
-          <h2><span class="num">02</span> Target platform</h2>
+          <h2 class="phead"><span class="step">02</span>Target platform</h2>
           <div class="targets" id="targets"></div>
           <div class="hint" id="tgtnote" style="margin-top:var(--sp-3);"></div>
         </div>
@@ -939,7 +939,7 @@
       <!-- RIGHT: settings + run + results -->
       <div>
         <div class="panel">
-          <h2><span class="num">03</span> Compression settings</h2>
+          <h2 class="phead"><span class="step">03</span>Compression settings</h2>
 
           <div class="ctrl">
             <div class="lab"><b>Art type</b><span class="auto" id="artAuto"></span></div>
@@ -985,7 +985,7 @@
         </div>
 
         <div class="panel results" id="results" style="margin-top:var(--sp-6);">
-          <h2><span class="num">04</span> Result</h2>
+          <h2 class="phead"><span class="step">04</span>Result</h2>
           <div class="verdict" id="verdict">
             <div class="dot"></div>
             <div class="txt"><b id="vTitle">—</b><span id="vSub">—</span></div>
