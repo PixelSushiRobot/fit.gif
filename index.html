@@ -22,11 +22,11 @@
     :root,
     :root[data-theme="dark"] {
       --bg: #0a0a0b;
-      --bg-2: #111113;
-      --panel-bg: #0e0e10;
+      --inset: #111113;
+      --panel: #0e0e10;
       --line: #2a2a2e;
-      --line-2: #1c1c20;
-      --text: #ececef;
+      --divider: #1c1c20;
+      --ink: #ececef;
       --muted: #7c7c85;
       --dim: #55555d;
       --accent: #ececef;
@@ -42,11 +42,11 @@
     /* Light theme — monochrome */
     :root[data-theme="light"] {
       --bg: #f4f4f2;
-      --bg-2: #ffffff;
-      --panel-bg: #ffffff;
+      --inset: #ffffff;
+      --panel: #ffffff;
       --line: #d4d4cf;
-      --line-2: #e6e6e1;
-      --text: #16161a;
+      --divider: #e6e6e1;
+      --ink: #16161a;
       --muted: #6a6a70;
       --dim: #9a9a9f;
       --accent: #16161a;
@@ -63,11 +63,11 @@
     @media (prefers-color-scheme: light) {
       :root:not([data-theme]) {
         --bg: #f4f4f2;
-        --bg-2: #ffffff;
-        --panel-bg: #ffffff;
+        --inset: #ffffff;
+        --panel: #ffffff;
         --line: #d4d4cf;
-        --line-2: #e6e6e1;
-        --text: #16161a;
+        --divider: #e6e6e1;
+        --ink: #16161a;
         --muted: #6a6a70;
         --dim: #9a9a9f;
         --accent: #16161a;
@@ -115,10 +115,43 @@
 
       --r-pill: 999px;
       --r-full: 50%;
+
+      /* Motion — one easing curve, three duration roles (see DESIGN.md → Interaction & motion). */
+      --ease: cubic-bezier(.2, .8, .2, 1);
+      --t-state: .12s;    /* color / background / border / opacity on interactive controls */
+      --t-move: .22s;     /* transform */
+      --t-reveal: .45s;   /* size reveals: meter fills, height/width */
     }
 
     * {
       box-sizing: border-box;
+    }
+
+    /* Keyboard focus ring (suppressed for mouse); theme-tinted text selection. Per DESIGN.md. */
+    button:focus-visible,
+    a:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
+    }
+    ::selection {
+      background: color-mix(in srgb, currentColor 22%, transparent);
+    }
+
+    /* Single shared state transition for interactive controls — add new interactive
+       components here, never a per-component transition. Enumerate props; never `all`. */
+    .btn,
+    .opt,
+    .opt .tag,
+    .seg button,
+    #drop,
+    select,
+    .custom-chip .chip-edit input {
+      transition:
+        color var(--t-state) var(--ease),
+        background-color var(--t-state) var(--ease),
+        border-color var(--t-state) var(--ease),
+        opacity var(--t-state) var(--ease);
     }
 
     html,
@@ -130,7 +163,7 @@
     body {
       font-family: 'SF Mono', 'JetBrains Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
       background: var(--bg);
-      color: var(--text);
+      color: var(--ink);
       line-height: var(--lh-normal);
       padding: 0 var(--sp-6) var(--sp-10);
       -webkit-font-smoothing: antialiased;
@@ -221,7 +254,7 @@
     }
 
     .panel {
-      background: var(--panel-bg);
+      background: var(--panel);
       border: 1px solid var(--line);
       padding: var(--sp-5);
     }
@@ -241,7 +274,7 @@
       align-items: center;
       gap: var(--sp-2);
       padding-bottom: var(--sp-3);
-      border-bottom: 1px solid var(--line-2);
+      border-bottom: 1px solid var(--divider);
     }
 
     .phead .step {
@@ -259,11 +292,10 @@
     /* dropzone */
     #drop {
       border: 1px dashed var(--line);
-      background: var(--bg-2);
+      background: var(--inset);
       padding: var(--sp-7) var(--sp-5);
       text-align: center;
       cursor: pointer;
-      transition: 0.15s;
     }
 
     #drop:hover {
@@ -271,8 +303,8 @@
     }
 
     #drop.hot {
-      border-color: var(--text);
-      background: color-mix(in srgb, var(--bg) 98%, var(--text) 2%);
+      border-color: var(--ink);
+      background: color-mix(in srgb, var(--inset) 96%, var(--ink) 4%);
     }
 
     #drop .t {
@@ -301,9 +333,9 @@
 
     /* Target buttons follow the reference "pill" model: the border derives from the
        element's own text color at 50% opacity, so shifting `color` on hover/selected
-       automatically darkens the border. Hover and selected share the same treatment
-       (stronger text + faint fill); selected+hover nudges slightly darker. */
-    .tgt {
+       automatically brightens the border. Hover previews (text/border only, no fill);
+       selection commits with a faint fill + brighter border (see the rules below). */
+    .opt {
       border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
       background: transparent;
       color: var(--muted);
@@ -311,24 +343,25 @@
       padding: var(--sp-3) var(--sp-4);
       cursor: pointer;
       text-align: left;
-      transition: color 0.12s, background 0.12s, border-color 0.12s;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: var(--sp-3);
     }
 
-    .tgt:hover,
-    .tgt.on {
-      color: var(--text);
-      background: color-mix(in srgb, var(--bg) 98%, var(--text) 2%);
+    .opt:hover {
+      color: var(--ink);
     }
 
-    .tgt.on:hover {
-      background: color-mix(in srgb, var(--bg) 96%, var(--text) 4%);
+    /* Hover previews (text + border brighten, no fill); selection commits with a 5% fill
+       tinted from the panel surface and a brighter --ink 75% border. Per DESIGN.md. */
+    .opt.on {
+      color: var(--ink);
+      background: color-mix(in srgb, var(--panel) 95%, var(--ink) 5%);
+      border-color: color-mix(in srgb, var(--ink) 75%, transparent);
     }
 
-    .tgt .n {
+    .opt .n {
       font-weight: 600;
       font-size: var(--fs-sm);
       text-transform: uppercase;
@@ -336,7 +369,7 @@
       color: inherit;
     }
 
-    .tgt .c {
+    .opt .tag {
       font-size: var(--fs-xs);
       /* Pin the line box so preset and custom chips share identical height. Expressed off
          the tag's own font-size (fs-xs + 4px leading) so the pill scales with the label's
@@ -352,13 +385,13 @@
     }
 
     /* Custom target: a role="button" div that looks like the preset pills. */
-    div.tgt {
+    div.opt {
       cursor: pointer;
     }
 
     /* The chip does double duty: static "N MB" when the pill is unselected, and an inline
        editable MB field when selected. Both live in markup; CSS shows one at a time.
-       Keep everything plain INLINE (not flex): the preset .c is inline text whose height is
+       Keep everything plain INLINE (not flex): the preset .tag is inline text whose height is
        the 11px line-box (measured 21px incl. 3px 9px padding). An inline-flex container
        instead sized to the flex line height, rendering ~3.5px taller. Inline text + an
        inline baseline-aligned input reproduces the preset's box exactly. */
@@ -370,11 +403,11 @@
       display: none;
     }
 
-    .tgt.on .custom-chip .chip-static {
+    .opt.on .custom-chip .chip-static {
       display: none;
     }
 
-    .tgt.on .custom-chip .chip-edit {
+    .opt.on .custom-chip .chip-edit {
       display: inline;
     }
 
@@ -467,15 +500,14 @@
     select {
       width: 100%;
       padding: var(--sp-2) var(--sp-7) var(--sp-2) var(--sp-3);
-      border: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ink) 50%, transparent);
       background: transparent;
-      color: var(--text);
+      color: var(--ink);
       font-family: inherit;
       font-size: var(--fs-sm);
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      transition: border-color 0.12s;
     }
 
     .selectwrap {
@@ -498,7 +530,7 @@
 
     select:focus {
       outline: none;
-      border-color: var(--text);
+      border-color: var(--ink);
     }
 
     .hint {
@@ -511,7 +543,7 @@
 
     .seg {
       display: flex;
-      border: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
+      border: 1px solid var(--line);
     }
 
     .seg button {
@@ -523,14 +555,13 @@
       font-size: var(--fs-xs);
       font-weight: 600;
       cursor: pointer;
-      color: var(--muted);
-      transition: color 0.12s, background 0.12s;
+      color: var(--dim);
       text-transform: uppercase;
       letter-spacing: 0.06em;
     }
 
     .seg button + button {
-      border-left: 1px solid color-mix(in srgb, var(--text) 50%, transparent);
+      border-left: 1px solid var(--line);
     }
 
     .seg button.on {
@@ -539,7 +570,7 @@
     }
 
     .seg button:not(.on):hover {
-      color: var(--text);
+      color: var(--ink);
     }
 
     .btn {
@@ -554,7 +585,6 @@
       font-size: var(--fs-sm);
       cursor: pointer;
       width: 100%;
-      transition: 0.12s;
     }
 
     .btn:not(.ghost):hover:not(:disabled) {
@@ -568,7 +598,7 @@
 
     .btn.ghost {
       background: transparent;
-      color: var(--text);
+      color: var(--ink);
       border-color: var(--line);
     }
 
@@ -582,7 +612,7 @@
       display: none;
       margin-top: var(--sp-4);
       padding-top: var(--sp-4);
-      border-top: 1px solid var(--line-2);
+      border-top: 1px solid var(--divider);
     }
 
     .meta.show {
@@ -611,7 +641,7 @@
     .filestats .fn {
       font-weight: 600;
       word-break: break-all;
-      color: var(--text);
+      color: var(--ink);
       margin-bottom: var(--sp-1);
     }
 
@@ -646,11 +676,11 @@
     }
 
     .verdict.good {
-      border-color: var(--text);
+      border-color: var(--ink);
     }
 
     .verdict.good .dot {
-      background: var(--text);
+      background: var(--ink);
     }
 
     .verdict.bad {
@@ -686,13 +716,13 @@
       border: 1px solid var(--line);
       padding: var(--sp-3);
       text-align: center;
-      background: var(--bg-2);
+      background: var(--inset);
     }
 
     .compare .box img {
       max-width: 100%;
       max-height: 140px;
-      border: 1px solid var(--line-2);
+      border: 1px solid var(--divider);
       background:
         repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%) 0 0 / 14px 14px;
     }
@@ -709,7 +739,7 @@
       font-weight: 600;
       font-size: var(--fs-lg);
       margin-top: var(--sp-2);
-      color: var(--text);
+      color: var(--ink);
     }
 
     .compare .box .sz.smaller {
@@ -722,7 +752,7 @@
       margin-top: var(--sp-4);
       padding: var(--sp-3) var(--sp-3);
       border: 1px solid var(--line);
-      border-left: 3px solid var(--text);
+      border-left: 3px solid var(--ink);
       background: var(--chip);
       font-size: var(--fs-xs);
       line-height: var(--lh-normal);
@@ -730,7 +760,7 @@
       text-wrap: pretty;
     }
     .mp4advice.show { display: block; }
-    .mp4advice b { color: var(--text); font-weight: 600; }
+    .mp4advice b { color: var(--ink); font-weight: 600; }
 
     /* Post-result "Preserve colors" re-fit — hidden until an auto-fit runs. Re-fits at full
        256-color palette and resizes down to fit, for when a result's colors look off. */
@@ -746,7 +776,7 @@
 
     .bar {
       height: 8px;
-      background: var(--line-2);
+      background: var(--divider);
       border: 1px solid var(--line);
       margin: var(--sp-7) 0 var(--sp-2);
       position: relative;
@@ -757,7 +787,7 @@
       height: 100%;
       background: var(--accent);
       width: 0;
-      transition: width 0.4s;
+      transition: width var(--t-reveal) var(--ease);
     }
 
     .bar .limit {
@@ -809,13 +839,13 @@
     /* auto-fit / compress progress */
     .progress {
       height: 0;
-      background: var(--line-2);
+      background: var(--divider);
       border: 1px solid var(--line);
       border-width: 0;
       margin-top: 0;
       overflow: hidden;
       opacity: 0;
-      transition: opacity 0.15s;
+      transition: opacity var(--t-state) var(--ease);
     }
     /* Reserve space only while actively progressing, so the area below the
        Compress button collapses when idle / no GIF is loaded. */
@@ -829,7 +859,7 @@
       height: 100%;
       width: 0;
       background: var(--accent);
-      transition: width 0.2s ease;
+      transition: width var(--t-reveal) var(--ease);
     }
     /* indeterminate sweep for a single compress pass (unknown duration) */
     .progress.indet .progress-fill {
@@ -1093,7 +1123,7 @@
       // editable <input> can live legitimately inside its chip (an <input> nested in a
       // real <button> is invalid and swallows focus/selection).
       const el = document.createElement(t.custom ? 'div' : 'button');
-      el.className = 'tgt' + (i === 0 ? ' on' : '');
+      el.className = 'opt' + (i === 0 ? ' on' : '');
       el.dataset.tid = t.id;
       if (t.custom) {
         el.setAttribute('role', 'button');
@@ -1101,16 +1131,16 @@
         // Chip holds a static label (unselected) OR an inline MB field (selected). Both
         // exist in markup; CSS shows one at a time based on the parent's .on state.
         el.innerHTML = `<span class="n">${t.name}</span>` +
-          `<span class="c custom-chip">` +
+          `<span class="tag custom-chip">` +
             `<span class="chip-static">${fmtBytes(t.cap)}</span>` +
             `<span class="chip-edit"><input type="number" id="customMB" inputmode="decimal" aria-label="Custom size limit in megabytes"><span class="unit">MB</span></span>` +
           `</span>`;
       } else {
-        el.innerHTML = `<span class="n">${t.name}</span><span class="c">${fmtBytes(t.cap)}</span>`;
+        el.innerHTML = `<span class="n">${t.name}</span><span class="tag">${fmtBytes(t.cap)}</span>`;
       }
       const select = () => {
         selectedTarget = t;
-        document.querySelectorAll('.tgt').forEach(x => x.classList.remove('on'));
+        document.querySelectorAll('.opt').forEach(x => x.classList.remove('on'));
         el.classList.add('on');
         $('tgtnote').textContent = t.note;
         if (t.custom) {
@@ -1135,7 +1165,7 @@
     (function initCustomInput() {
       const customT = TARGETS.find(t => t.custom);
       const input = $('customMB');
-      const staticLabel = document.querySelector('.tgt[data-tid="custom"] .chip-static');
+      const staticLabel = document.querySelector('.opt[data-tid="custom"] .chip-static');
       // Grow the field to hug its content so a short value ("8") doesn't leave dead space
       // to the left of the right-aligned text. The whole UI is monospace, so 1ch ≈ one
       // digit — width = character count is accurate with no measuring hack.
