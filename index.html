@@ -244,33 +244,13 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: var(--sp-5);
-      align-items: stretch;
+      align-items: start;
     }
 
     @media (max-width: 860px) {
       .grid {
         grid-template-columns: minmax(0, 1fr);
       }
-    }
-
-    /* Equal-height columns on desktop: each column is a flex stack, and the input
-       panel's dropzone absorbs the slack so both columns match height until the
-       layout collapses to a single column. */
-    .grid > div {
-      display: flex;
-      flex-direction: column;
-    }
-    .panel.grow {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* While a new GIF is decoding, don't let the transient loading status (in the right
-       column) stretch the left column — the dropzone would grow then snap back the instant
-       the preview appears. Freeze equal-height until the load settles. */
-    body.loading .grid {
-      align-items: start;
     }
 
     .panel {
@@ -316,11 +296,6 @@
       padding: var(--sp-7) var(--sp-5);
       text-align: center;
       cursor: pointer;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
     }
 
     #drop:hover {
@@ -946,7 +921,7 @@
     <div class="grid">
       <!-- LEFT: input + controls -->
       <div>
-        <div class="panel grow">
+        <div class="panel">
           <h2 class="phead"><span class="step">01</span>Your GIF</h2>
           <div id="drop">
             <div class="t">Drop a GIF here</div>
@@ -1276,11 +1251,10 @@
         setStatus('Please choose a GIF file.', true); return;
       }
       setStatus('Reading GIF…');
-      document.body.classList.add('loading');
       const buf = await file.arrayBuffer();
       let decoded;
       try { decoded = decodeGIF(new Uint8Array(buf)); }
-      catch (err) { setStatus("Couldn't read this GIF: " + err.message, true); document.body.classList.remove('loading'); return; }
+      catch (err) { setStatus("Couldn't read this GIF: " + err.message, true); return; }
 
       current = { name: file.name, size: file.size, buf, decoded };
       lastOutputBlob = null;
@@ -1322,7 +1296,6 @@
       } else {
         evaluateExisting();
       }
-      document.body.classList.remove('loading');
     }
 
     // Which NON-size limits does the original exceed for the selected target? File size under
